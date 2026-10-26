@@ -1,109 +1,65 @@
-# langchain-finic
+# Finic for LangChain
 
-Community-maintained LangChain integration for **Finic Grayson**, by Suprep Labs.
-Typed decisions, LCEL composition, LangGraph nodes, structured tools, and optional
-agent middleware. This alpha is not endorsed by Finic or LangChain.
-
-[Documentation](https://supreplabs.github.io/langchain-finic/) ·
-[Source](https://github.com/supreplabs/langchain-finic) ·
-[PyPI](https://pypi.org/project/langchain-finic/) ·
-[MIT license](https://github.com/supreplabs/langchain-finic/blob/main/LICENSE)
+`langchain-finic` connects Finic Grayson's typed decisions to LangChain and
+LangGraph. It is an MIT-licensed, community-maintained Python integration by
+Suprep Labs. The package is alpha and is not endorsed by Finic or LangChain.
 
 ## Install
 
-Python 3.11 or newer. Install the alpha release:
+Use Python 3.11 or later and a Finic API key:
 
 ```bash
 pip install langchain-finic==0.1.0a4
 export FINIC_API_KEY=your_key
-# Optional; defaults to grayson-1:
-export FINIC_MODEL=grayson-1
 ```
 
-## Make a typed decision
+The default decision model is `grayson-1`. Set `FINIC_MODEL` or pass `model=` to
+configure it. The application is responsible for loading environment variables.
+
+## First decision
+
+This example sends fictional evidence to Finic and spends API credits.
 
 ```python
-from langchain_finic import Choice, DecisionRequest, FinicClassifier, Noul
+from langchain_finic import DecisionRequest, FinicClassifier, Noul
 
 request = DecisionRequest(
-    state={"events": ["New device", "Transfer to an unfamiliar recipient"]},
-    questions={
-        "takeover": Noul(instructions="Does this evidence suggest account takeover?"),
-        "route": Choice(
-            instructions="Choose a review queue.",
-            criteria={"standard": "Routine review", "urgent": "Urgent investigation"},
-        ),
-    },
+    state={"events": ["New device", "Payment to an unfamiliar recipient"]},
+    questions={"takeover": Noul(instructions="Does the evidence suggest account takeover?")},
 )
-
 with FinicClassifier() as classifier:
-    decision = classifier.invoke(request)
-    print(decision.nouls["takeover"].noul)
-    print(decision.choices["route"].choice)
-    print(decision.request_id)
+    response = classifier.invoke(request)
+    print(response.nouls["takeover"].noul)
+    print(response.request_id)
 ```
 
-`Noul`, `Choice`, `MultiChoice`, and `Score` have typed answers. Responses retain
-probabilities, usage, and request metadata. Finic evaluates decisions; it does not
-generate chat messages or text tokens.
+The response contains model probabilities, not a verified fraud determination.
+Applications choose their own review or routing policy.
 
-## Compose with LangChain and LangGraph
+## Supported interfaces
 
-```python
-# request is defined above.
-with FinicClassifier() as classifier:
-    route_chain = classifier | (lambda result: result.choices["route"].choice)
-    route = route_chain.invoke(request, config={"tags": ["risk-review"]})
-    tool = classifier.as_tool()
-    print(tool.name)  # finic_decide; pass it to create_agent or ToolNode
-```
+| Capability | Interface |
+| --- | --- |
+| Typed decisions | `Noul`, `Choice`, `MultiChoice`, `Score` |
+| LCEL composition | `FinicClassifier` is a LangChain Runnable |
+| Sync and async calls | `invoke`, `ainvoke`, `batch`, `abatch` |
+| Agent tools | `FinicClassifier.as_tool()` |
+| LangGraph | Runnable nodes or tools in `ToolNode` |
+| Optional middleware | Model routing and tool screening |
+| Host-enabled tracing | LangSmith metadata and usage |
 
-```python
-import asyncio
+Batching makes individual API requests. Streaming yields one complete response.
+Use a separate chat-provider model for chat generation and agent orchestration.
 
-async def review():
-    async with FinicClassifier() as classifier:
-        return await classifier.abatch([request], config={"max_concurrency": 1})
+Continue with the [usage guide](usage.md) for complete composition examples,
+configuration, retries, client ownership, and data handling. The [API reference](api.md)
+describes the public types and methods.
 
-results = asyncio.run(review())
-```
+## Development and support
 
-Batching makes individual API requests; concurrency is controlled by Runnable config.
-Streaming yields one complete decision. A chat-provider model can call the Finic tool
-through `create_agent`; the Finic integration itself is a decision Runnable.
+Report reproducible bugs through [GitHub issues](https://github.com/supreplabs/langchain-finic/issues).
+See [contributing](https://github.com/supreplabs/langchain-finic/blob/main/CONTRIBUTING.md)
+for development and test commands, and [security reporting](https://github.com/supreplabs/langchain-finic/blob/main/SECURITY.md)
+for private vulnerability reports.
 
-## Optional middleware
-
-```bash
-pip install 'langchain-finic[middleware]==0.1.0a4'
-```
-
-`ModelRouterMiddleware` selects among host chat models. `AutoModeMiddleware` screens
-specified tools before execution. See the complete
-[middleware example](https://github.com/supreplabs/langchain-finic/blob/main/examples/middleware_agent.py)
-and [configuration guide](https://supreplabs.github.io/langchain-finic/usage/).
-Tool screening is probabilistic; application authorization remains necessary.
-
-## Configuration and data
-
-Use `FINIC_API_KEY`, `FINIC_MODEL`, `FINIC_TIMEOUT_SECONDS`, and `FINIC_MAX_ATTEMPTS`,
-or constructor options. The library does not load `.env`. The host controls optional
-LangSmith tracing, which can record request data and responses. Default timeout is
-60 seconds, with up to three attempts; retries can incur additional charges.
-Use context managers to reuse and close owned HTTP clients. Injected clients remain
-caller-owned. Read the [usage guide](https://supreplabs.github.io/langchain-finic/usage/)
-for precedence, serialization, resource lifetimes, and error handling.
-
-## Development
-
-```bash
-uv sync --locked --group dev --extra middleware
-make check
-```
-
-Default tests use mocked HTTP with network disabled. Opt-in live tests spend Finic
-credits. See [contributing](https://github.com/supreplabs/langchain-finic/blob/main/CONTRIBUTING.md)
-and [security reporting](https://github.com/supreplabs/langchain-finic/blob/main/SECURITY.md).
-
-References: [Finic API](https://docs.finic.ai/reference/decide),
-[LangChain integration guidelines](https://docs.langchain.com/oss/python/contributing/integrations-langchain).
+Provider reference: [Finic decision API](https://docs.finic.ai/reference/decide).

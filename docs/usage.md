@@ -1,173 +1,257 @@
 # Usage and configuration
 
-## Configuration and ownership
+The examples below use fictional evidence and require `FINIC_API_KEY` in the
+process environment. Run Python snippets in order within each section. Calls to
+Finic spend API credits; the package does not load `.env` files.
 
-`model`, `api_key`, `timeout`, `max_attempts`, `client`, `http_client`,
-`http_async_client`, `transport`, and `async_transport` are typed constructor fields.
-Unknown fields fail validation. Timeout and attempts also read
-`FINIC_TIMEOUT_SECONDS` and `FINIC_MAX_ATTEMPTS`. Explicit constructor values win.
-`FINIC_MODEL` defaults to `grayson-1`. Model precedence is: invocation/bound override,
-explicit request model, classifier constructor model, then `FINIC_MODEL`/default.
-An omitted Pydantic request model does not override the classifier constructor.
-Model names must be nonempty and contain no whitespace; the Finic service decides
-which names are supported. The integration does not claim other models are available.
+## Decisions and LCEL
 
 ```python
-with FinicClassifier(timeout=75, max_attempts=2) as classifier:
-    response = classifier.bind(model="grayson-1").invoke(request)
-    probability = response.nouls["takeover"].noul
+from langchain_finic import Choice, DecisionRequest, FinicClassifier, Noul
 
-async with FinicClassifier() as classifier:
-    response = await classifier.ainvoke(request)
+request = DecisionRequest(
+    state={"events": ["New device", "Payment to an unfamiliar recipient"]},
+    questions={
+        "takeover": Noul(instructions="Does the evidence suggest account takeover?"),
+        "route": Choice(
+            instructions="Choose a review queue.",
+            criteria={"standard": "Routine review", "urgent": "Urgent investigation"},
+        ),
+    },
+)
+with FinicClassifier(timeout=75, max_attempts=2) as classifier:
+    decision = classifier.invoke(request)
+    print(decision.nouls["takeover"].noul)
+    route_chain = classifier | (lambda result: result.choices["route"].choice)
+    print(route_chain.invoke(request, config={"tags": ["review"]}))
 ```
 
-Inside `with` / `async with`, owned HTTP pools are created lazily and reused across
-calls and batches. Outside a context, each invocation closes its owned pool on
-success, failure, or cancellation. `close()`
-closes sync resources; after async use call `await aclose()` on the same event loop.
-Close only after in-flight operations finish. Injected HTTP clients and an injected
-`FinicClient` remain caller-owned. Request authentication and redirect prevention
-still apply to injected HTTP clients.
+Each invocation accepts a `DecisionRequest` or a dictionary with `state`,
+`questions`, and an optional `model`. State can be text, a JSON object or array,
+or LangChain messages nested within those inputs. Messages are normalized to
+role/content/tool-call JSON. Request data is sent to Finic.
 
-`.configurable_fields(...)` supports standard LangChain configurable fields.
-LangChain creates temporary models for overrides; these use invocation-scoped
-pools even when the original model is inside a context manager. For
-frequent per-call reconfiguration, inject a shared, caller-owned HTTP client to
-manage the resulting configurations' connection lifetime explicitly. Invocation
-kwargs currently support `model`; unsupported options fail clearly.
-Temporary owned pools close their transports too; wrap a reusable custom transport
-in an injected HTTP client when sharing it across configurations.
+| Question | Purpose | Response accessor |
+| --- | --- | --- |
+| `Noul` | Probability that a proposition is true | `response.nouls[name].noul` |
+| `Choice` | Select one named option | `response.choices[name].choice` |
+| `MultiChoice` | Select options whose probabilities reach 0.5 | `response.multi_choices[name].multi_choice` |
+| `Score` | Expected index across ordered levels, starting at zero | `response.scores[name].score` |
 
-The state accepts nested LangChain messages and converts them to role/content/tool
-call dictionaries. `.nouls`, `.choices`, `.multi_choices`, `.scores`, and
-`.usage_metadata` provide typed response accessors. `.as_tool(args_schema=None, *,
-name=None, description=None, arg_types=None)` supports the standard Runnable tool
-conversion signature, including JSON ToolMessage output.
+`Choice` and `Score` answers include a probability distribution and confidence.
+`Noul` returns the probability itself; `MultiChoice` returns a probability per
+option. These model outputs do not guarantee accuracy for a particular dataset.
+See the [API reference](api.md) for request fields and response types.
+
+## Async, batching, and streaming
+
+This example uses `request` from the preceding section. In a Python script, run
+the coroutine with `asyncio.run`; in a notebook with an active event loop, use
+`await review()` instead of `asyncio.run(review())`.
+
+```python
+import asyncio
+
+async def review():
+    async with FinicClassifier() as classifier:
+        results = await classifier.abatch([request], config={"max_concurrency": 1})
+        return [result.choices["route"].choice for result in results]
+
+print(asyncio.run(review()))
+```
+
+`batch` and `abatch` issue a separate decision request for each input. They do not
+use a provider-side bulk endpoint. `max_concurrency` limits concurrent tasks, not
+requests per second; the service's organization quota still applies across callers.
+A failed request raises by default; use `return_exceptions=True` when the caller
+needs to handle individual failures. `stream` and `astream` yield one complete
+response, not text tokens.
+
+## Configuration
+
+| Constructor option | Environment variable | Default / constraint |
+| --- | --- | --- |
+| `api_key` | `FINIC_API_KEY` | Required unless supplied through an injected client |
+| `model` | `FINIC_MODEL` | `grayson-1`; nonempty, no whitespace |
+| `timeout` | `FINIC_TIMEOUT_SECONDS` | 60 seconds; greater than 30 and at most 180 |
+| `max_attempts` | `FINIC_MAX_ATTEMPTS` | 3 total attempts, including the first; allowed range 1–5 |
+
+Explicit constructor values override environment defaults. Model precedence is:
+invocation or `.bind(model=...)` override, explicitly supplied request model,
+classifier constructor model, then environment/default. An omitted Pydantic request
+model does not override the classifier's model. The service determines which model
+names are supported. `GRAYSON_*` environment aliases are not supported.
+
+Unknown constructor fields and unsupported invocation options raise errors.
+`model` is the supported invocation override. LangChain configuration such as tags,
+metadata, callbacks, and `max_concurrency` is passed through `config`.
+`.configurable_fields(...)` supports standard LangChain configuration overrides.
+
+### Client ownership
+
+Use `with FinicClassifier()` or `async with FinicClassifier()` to reuse owned HTTP
+pools across calls and batches. Outside a context, owned pools are closed after
+each invocation, including on failure or cancellation. Use one event loop for an
+async client lifetime. Close only after in-flight operations finish; call
+`await aclose()` after async use, or `close()` for sync-only use.
+
+Injected `FinicClient`, `httpx.Client`, and `httpx.AsyncClient` instances remain
+caller-owned. A `client=` cannot be combined with other transport or credential
+options. `http_client` conflicts with `transport`; `http_async_client` conflicts
+with `async_transport`. The integration still applies authentication, timeout, and
+redirect prevention to requests made with borrowed HTTP clients.
+
+LangChain creates temporary models for configurable-field overrides. These use
+invocation-scoped pools even if the original classifier is inside a context.
+For frequent overrides, inject a shared caller-owned HTTP client. Owned pools
+also close their transports; put reusable custom transports in a shared HTTP
+client rather than passing the transport directly to multiple invocations.
+
+### Errors and retries
+
+`FinicError` represents provider failures, exhausted transport retries, or a
+response that violates the decision contract. Its optional `status` and
+`request_id` fields help diagnose service failures without printing case data.
+Local request validation raises Pydantic `ValidationError`; unsupported invocation
+options raise `TypeError`.
+
+The client retries transport errors and HTTP 429, 500, 502, 503, and 504 with bounded
+backoff. `timeout` is an HTTPX timeout per attempt, not a total invocation deadline.
+Retrying a timed-out successful decision can incur another charge. Avoid stacking
+independent retry policies without considering the combined attempt count.
+
+Using the request from the first section:
+
+```python
+from langchain_finic import FinicError
+
+try:
+    with FinicClassifier(max_attempts=1) as classifier:
+        decision = classifier.invoke(request)
+except FinicError as error:
+    print("Decision unavailable", error.status, error.request_id)
+else:
+    print(decision.choices["route"].choice)
+```
+
+## LangGraph
+
+Install `langgraph>=1,<2` in the host application. The complete
+[composition example](https://github.com/supreplabs/langchain-finic/blob/main/examples/composition.py)
+shows a typed graph state, a decision node, LCEL composition, and client cleanup.
+
+The tool returned by `.as_tool()` also works in LangGraph `ToolNode` and in
+`create_agent`. It converts the decision to JSON-compatible output and preserves
+the tool-call ID when returning a `ToolMessage`.
 
 ## Tool-calling agents
 
-Install your chat provider and `langchain>=1` in the host application. Grayson is
-the decision tool; the host chat model chooses when to call it:
+A host chat model decides when to call the Finic tool. Install its provider package
+and configure its credentials in addition to `FINIC_API_KEY`. Grayson is the
+decision tool; it does not implement chat generation or `bind_tools`.
+
+The following reusable function requires an initialized `BaseChatModel` that
+supports tool calling. It defines all other inputs locally:
 
 ```python
 from langchain.agents import create_agent
+from langchain_core.language_models import BaseChatModel
+from langchain_finic import FinicClassifier
 
-with FinicClassifier() as classifier:
-    agent = create_agent(model=chat_model, tools=[classifier.as_tool()])
-    result = agent.invoke({"messages": [{"role": "user", "content": "Review this payment evidence..."}]})
+
+def review_with_agent(chat_model: BaseChatModel):
+    with FinicClassifier() as classifier:
+        agent = create_agent(model=chat_model, tools=[classifier.as_tool()])
+        return agent.invoke({"messages": [{
+            "role": "user",
+            "content": "Use finic_decide to assess this fictional case: a new device sent a payment to a new payee.",
+        }]})
 ```
-
-The tool also works in LangGraph `ToolNode`, with checkpointed message state.
-Both synchronous and asynchronous `create_agent` execution are covered by mock
-transport integration tests. Grayson does not implement chat generation,
-`bind_tools`, or token streaming; use a chat provider for those capabilities.
-
-## Tracing and serialization
-
-Host-enabled LangSmith tracing receives an LLM run with `ls_provider=finic`,
-the actual requested `ls_model_name`, token usage, request ID, and server evaluation time.
-Caller callbacks, tags, run names, and metadata propagate through LCEL and tools.
-No tracing service is enabled automatically. No dollar-cost estimate is invented.
-
-LangChain serialization stores the key as a `FINIC_API_KEY` secret reference,
-never its value. Load only trusted serialized configurations, supplying that secret
-and allowing `FinicClassifier` in the loader's class allowlist where required.
-Custom clients/transports are deliberately not serializable because reloading them
-would change their behavior. Pydantic configuration dumps exclude keys and clients.
-
-## Test coverage
-
-The suite exercises request/response contracts, sync/async retries, configuration,
-serialization, messages, batching, callbacks, tool calls, resource ownership,
-cancellation, LangGraph checkpoints, and LangChain `create_agent`. Provider HTTP
-is mocked; tests neither read `.env` nor spend credits. Chat-model standard tests
-are not applicable to this decision Runnable. The package is an alpha maintained by Suprep Labs.
-
 
 ## Agent middleware
 
-Install the optional dependencies and your chat-model provider integrations:
-
 ```bash
-pip install 'langchain-finic[middleware]'
-# Also install the provider packages needed by your configured chat models.
+pip install 'langchain-finic[middleware]==0.1.0a4'
+# Also install the provider package for your host chat models.
 ```
+
+This function accepts two initialized host chat models with tool-calling support.
+The only tool reads a fictional local record; it performs no external action.
 
 ```python
 from langchain.agents import create_agent
+from langchain_core.language_models import BaseChatModel
+from langchain_core.tools import tool
 from langchain_finic import FinicClassifier
 from langchain_finic.middleware import AutoModeMiddleware, ModelChoice, ModelRouterMiddleware
 
-# fast_model and powerful_model are initialized BaseChatModel instances.
-# review_tool is a host-provided LangChain tool; it must also be in the agent's tools.
-with FinicClassifier() as classifier:
-    router = ModelRouterMiddleware(
-        classifier=classifier,
-        choices={
-            "fast": ModelChoice(model=fast_model, criteria="Simple lookups and extraction."),
-            "powerful": ModelChoice(model=powerful_model, criteria="Complex analysis and reasoning."),
-        },
-        minimum_probability=0.70,
-        fallback="powerful",
-    )
-    guard = AutoModeMiddleware(
-        classifier=classifier,
-        tools=[review_tool],
-        threshold=0.5,
-        criteria={
-            "true": "Risky, outside the user's scope, or insufficiently authorized.",
-            "false": "Within the user's request and acceptable under the tool policy.",
-        },
-    )
-    agent = create_agent(fast_model, tools=[review_tool], middleware=[router, guard])
-    result = agent.invoke({"messages": [{"role": "user", "content": "Review this case."}]})
-    print(result["finic_model_route"])
+
+@tool
+def lookup_demo_case(case_id: str) -> dict:
+    """Look up a fictional local case by ID."""
+    return {"case_id": case_id, "status": "awaiting independent review"}
+
+
+def review_with_middleware(fast_model: BaseChatModel, powerful_model: BaseChatModel):
+    with FinicClassifier() as classifier:
+        router = ModelRouterMiddleware(
+            classifier=classifier,
+            choices={
+                "fast": ModelChoice(model=fast_model, criteria="Simple lookups and extraction."),
+                "powerful": ModelChoice(model=powerful_model, criteria="Complex evidence analysis."),
+            },
+            minimum_probability=0.70,
+            fallback="powerful",
+        )
+        guard = AutoModeMiddleware(classifier=classifier, tools=[lookup_demo_case], threshold=0.5)
+        agent = create_agent(fast_model, tools=[lookup_demo_case], middleware=[router, guard])
+        return agent.invoke({"messages": [{"role": "user", "content": "Look up the demo case."}]})
 ```
 
-`ModelChoice.model` also accepts a provider-qualified model string, initialized
-through LangChain's `init_chat_model`. Provider dependencies and credentials belong
-to the host application. `FINIC_MODEL` chooses the Finic decision model, not either
-host chat model.
+`ModelChoice.model` also accepts a provider-qualified model string resolved by
+LangChain's `init_chat_model`. `FINIC_MODEL` selects the decision model, not either
+host chat model. The [command-line example](https://github.com/supreplabs/langchain-finic/blob/main/examples/middleware_agent.py)
+accepts those provider-qualified strings as arguments.
 
-`ModelRouterMiddleware` classifies the latest human message in `before_agent`,
-then uses that selected model for every call in the invocation's tool loop. The
-selected name and full typed answer are stored as JSON in `finic_model_route`.
-The next user invocation is classified again, including with a checkpointer.
-Concurrent runs hold their choices in separate graph state. No route is stored
-on the shared middleware instance. If the winning option's probability is below
-`minimum_probability`, or classification fails, an explicitly configured `fallback`
-is used. With no fallback, the run stops. It never selects an unconfigured model.
+`ModelRouterMiddleware` classifies the latest human message in `before_agent`
+and uses the selected model throughout that invocation's tool loop. It records
+the selection and answer in `finic_model_route`. The next user invocation is
+classified again, including with a checkpointer. Concurrent runs store their
+routes in graph state rather than on the shared middleware instance.
 
-`AutoModeMiddleware` assesses only the listed tool names/objects in
-`wrap_tool_call`. It sends conversation messages and the exact tool name/arguments
-to Finic. At or above `threshold`, execution is skipped and an error `ToolMessage`
-with the original call ID is returned. Malformed responses and classifier errors
-also block execution without exposing error details. Unlisted tools pass through
-without a Finic call. Actual tool exceptions propagate to the host; cancellation
-propagates normally. Guarding a tool does not register it with the agent.
+If the winning option's probability is below `minimum_probability`, or a provider
+or validation error occurs during classification, the configured `fallback` is
+used. Without a fallback, the run stops. An invocation with no human message
+raises an error. Unconfigured model names are never selected.
 
-Both middleware implement native async hooks, preserve callback/tracing context,
-and support `with`/`async with`. A supplied classifier remains caller-owned; an
-internally created classifier is closed when its middleware context exits. Keep
-that context alive for the agent's lifetime.
+`AutoModeMiddleware` screens only the listed tools in `wrap_tool_call`. It sends
+conversation messages and the proposed tool name/arguments to Finic. At or above
+`threshold`, execution is skipped and an error `ToolMessage` retains the original
+call ID. Classifier exceptions and malformed responses also block execution.
+Unlisted tools run without a Finic assessment. Actual tool exceptions and
+cancellation propagate to the host. Guarding a tool does not register it with the
+agent; include it in the agent's `tools` list too.
 
-The guard is probabilistic screening, not deterministic authorization or a human
-approval system. Retain application access checks; use LangChain's human-review
-middleware when an action requires approval. Conversation and tool arguments sent
-to the guard must be appropriate to share with the decision provider.
+Both middleware support native async hooks and context managers. An injected
+classifier remains caller-owned. A middleware-created classifier closes when the
+middleware context exits; keep that context alive for the agent's lifetime.
+The guard is probabilistic screening, not deterministic authorization or human
+approval. Retain application access checks and use
+[human-in-the-loop middleware](https://docs.langchain.com/oss/python/langchain/human-in-the-loop)
+when an action needs approval.
 
-The optional module is `langchain_finic.middleware`; importing `langchain_finic`
-itself does not import LangChain agents or require the middleware extra. See
-[the runnable host example](https://github.com/supreplabs/langchain-finic/blob/main/examples/middleware_agent.py). The middleware
-uses LangChain's [documented hooks](https://docs.langchain.com/oss/python/langchain/middleware/custom).
+## Tracing and serialization
 
-## Batch and streaming behavior
+When the host enables LangSmith tracing, the classifier records an LLM run with
+`ls_provider=finic`, the requested model name, token usage, request ID, and server
+evaluation time. Callbacks, tags, and metadata propagate through LCEL and tools.
+The library does not enable tracing automatically or calculate monetary cost.
 
-`batch` and `abatch` issue one request per input; there is no server-side batch endpoint.
-Set `max_concurrency` in Runnable config to respect your organization quota.
-`stream` and `astream` yield a complete decision, not text tokens.
+The configured API key is excluded from representations and Pydantic dumps;
+LangChain serialization stores a `FINIC_API_KEY` secret reference rather than its
+value. Request state and caller metadata are not automatically redacted and may
+appear in traces. Choose the data you send and your tracing retention accordingly.
 
-## LCEL and LangGraph
-
-See the self-contained [composition example](https://github.com/supreplabs/langchain-finic/blob/main/examples/composition.py).
-Install `langgraph>=1,<2` in your application to run it.
+Load serialized configurations only from trusted sources, supplying the secret
+and the loader's class allowlist where required. Configurations containing custom
+clients or transports are not serializable. See [security reporting and data handling](https://github.com/supreplabs/langchain-finic/blob/main/SECURITY.md).

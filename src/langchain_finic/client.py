@@ -1,4 +1,4 @@
-"""HTTP transport independent of the AML application."""
+"""HTTP transport for the Finic decision API."""
 
 import asyncio
 import random

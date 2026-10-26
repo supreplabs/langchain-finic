@@ -92,11 +92,5 @@ Use [listing metadata](LANGCHAIN_LISTING.md) for a LangChain integration listing
 claim LangChain or Finic endorsement. Obtain maintainer authorization before submitting
 an issue on their behalf.
 
-The original research application should migrate only after public installation is
-verified: replace its workspace requirement with `langchain-finic==0.1.0a4`, remove
-its workspace source/member declarations and duplicated package, adjust obsolete CI
-paths, update its lockfile, and run its application suite. Until then it continues
-using the local package. Future integration development belongs in this repository.
-
 If a release is broken, publish a corrected version and consider yanking the bad
 version with a clear reason. Do not delete published files or move release tags.

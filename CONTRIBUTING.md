@@ -35,3 +35,20 @@ MIT license. See [community conduct](CODE_OF_CONDUCT.md) and
 The minimum-dependency CI job uses `langchain-tests==1.0.0`, which supports
 `langchain-core==1.0.0`; current-dependency jobs use `langchain-tests==1.1.9`.
 The latter requires core >=1.4 and cannot validate the historical minimum.
+
+## Documentation standards
+
+Keep the user site focused on installation, supported interfaces, configuration,
+examples, and API behavior. Release procedures and directory-listing instructions
+belong in the repository's maintainer guides, outside `docs/`.
+
+Ground capability claims in the public API and tests. Do not publish internal
+research results, account-specific usage, or unverified accuracy/calibration claims.
+Use fictional examples. Define inputs explicitly or label examples as reusable
+functions with caller-supplied parameters. Python snippets in the README and user
+guides are executed offline by `test_documentation.py`; keep them runnable in the
+order shown. Prefer links over duplicated explanations and check relative links.
+
+Follow [LangChain's documentation quality guidance](https://docs.langchain.com/oss/python/contributing/documentation#quality-standards).
+Its Mintlify-specific syntax applies to LangChain-hosted pages; this repository's
+site uses MkDocs and generated Python API references.

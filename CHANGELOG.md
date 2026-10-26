@@ -2,18 +2,14 @@
 
 ## 0.1.0a4
 
-First standalone release candidate for PyPI, extracted from the Suprep Labs Finic
-agent research workspace. Publication status is shown by PyPI and GitHub Releases.
+Initial public alpha. See [GitHub Releases](https://github.com/supreplabs/langchain-finic/releases)
+for publication dates and distribution checksums.
 
-- MIT license, typed distribution metadata, standalone development tools and docs.
-- Standard LangChain tool tests and offline framework contract coverage.
-- Wheel/sdist verification, compatibility CI, and OIDC release automation.
-- Type-checking fixes for response narrowing and validated middleware inputs.
-- HTTPX minimum is 0.28.1, matching the standard-test baseline.
-- Existing typed decisions, client, LCEL tools, and optional agent middleware retained.
+- Typed `Noul`, `Choice`, `MultiChoice`, and `Score` decisions with response validation.
+- LangChain Runnable composition, tools, sync/async calls, batching, and tracing metadata.
+- Optional model-routing and tool-screening middleware for LangChain agents.
+- Configurable model name, transport injection, bounded retries, and client lifecycle management.
+- MIT license, typed distributions, usage documentation, and API reference.
 
-## 0.1.0a3 — internal workspace release
-
-- FINIC_* configuration, default grayson-1 model, routing and tool-screening middleware.
-- Owned-client cleanup for configurable Runnables and cancellation.
-- GRAYSON_* environment aliases removed; use FINIC_* variables.
+Configuration uses `FINIC_*` environment variables. Earlier unpublished prototypes
+used `GRAYSON_*` aliases; those aliases are not supported by this release.
