@@ -1,6 +1,6 @@
 # Releasing
 
-Release target: **0.1.0a4**, repository **supreplabs/langchain-finic**.
+Release target: **0.1.0a5**, repository **supreplabs/langchain-finic**.
 The package remains alpha. A release is complete only when PyPI installation is verified.
 
 ## One-time account setup
@@ -49,8 +49,8 @@ need no API credentials. Publishing jobs alone receive OIDC permission.
    available to this maintainer. Create and push the matching version tag:
 
 ```bash
-git tag -a v0.1.0a4 -m 'Release 0.1.0a4'
-git push origin v0.1.0a4
+git tag -a v0.1.0a5 -m 'Release 0.1.0a5'
+git push origin v0.1.0a5
 ```
 
 The release workflow reruns CI, checks the tag against metadata, builds the release
@@ -71,14 +71,15 @@ replace an already published version; use a new version for changed artifacts.
 `workflow_dispatch` must be dispatched on the version tag, not `main`.
 
 ```bash
-pip install langchain-finic==0.1.0a4
-pip install 'langchain-finic[middleware]==0.1.0a4'
+pip install langchain-finic==0.1.0a5
+pip install 'langchain-finic[middleware]==0.1.0a5'
 ```
 
 ## Live smoke checks
 
 Default tests and installation checks use mock HTTP and spend no credits. To make
-two explicit live requests with fictional data:
+six explicit live requests with fictional data (seven checks, including LangChain's
+standard tool integration suite):
 
 ```bash
 export FINIC_API_KEY=your_key

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.0a5
+
+- Add opt-in live LangChain standard tool integration tests alongside sync/async
+  classifier smoke tests.
+- Clarify independent integration ownership and improve README navigation and examples.
+- Generate version-specific release notes and detect prerelease versions automatically.
+- Update GitHub Actions for uv setup, artifact upload/download, and Pages configuration/deployment.
+
 ## 0.1.0a4
 
 Initial public alpha. See [GitHub Releases](https://github.com/supreplabs/langchain-finic/releases)
