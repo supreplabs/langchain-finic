@@ -43,6 +43,8 @@ def main():
         "LICENSE",
         "CHANGELOG.md",
         "CONTRIBUTING.md",
+        "RELEASING.md",
+        "LANGCHAIN_LISTING.md",
         "SECURITY.md",
         "CODE_OF_CONDUCT.md",
         "Makefile",

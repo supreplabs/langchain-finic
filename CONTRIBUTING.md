@@ -26,7 +26,7 @@ These tests check response contracts, not deterministic probability values.
 
 Use `make format` for formatting and `uv lock` after dependency changes.
 Documentation lives in `docs/`; public API pages are generated from docstrings.
-See [release instructions](docs/releasing.md) for distribution and publishing.
+See [release instructions](RELEASING.md) for distribution and publishing.
 
 By contributing, you agree to license your contributions under this repository's
 MIT license. See [community conduct](CODE_OF_CONDUCT.md) and

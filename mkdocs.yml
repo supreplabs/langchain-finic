@@ -8,8 +8,6 @@ nav:
   - Getting started: index.md
   - Usage and configuration: usage.md
   - API reference: api.md
-  - Releasing: releasing.md
-  - LangChain listing: listing.md
 plugins:
   - search
   - mkdocstrings:

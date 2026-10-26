@@ -88,7 +88,7 @@ not an exact probability. No live calls run in pull requests or release CI.
 
 ## After publication
 
-Use [listing metadata](listing.md) for a LangChain integration listing request; do not
+Use [listing metadata](LANGCHAIN_LISTING.md) for a LangChain integration listing request; do not
 claim LangChain or Finic endorsement. Obtain maintainer authorization before submitting
 an issue on their behalf.
 

@@ -11,8 +11,7 @@ agent middleware. This alpha is not endorsed by Finic or LangChain.
 
 ## Install
 
-Python 3.11 or newer. The initial release target is `0.1.0a4`; until it appears
-on PyPI, install from a local checkout with `pip install .`.
+Python 3.11 or newer. Install the alpha release:
 
 ```bash
 pip install langchain-finic==0.1.0a4
@@ -103,9 +102,8 @@ make check
 ```
 
 Default tests use mocked HTTP with network disabled. Opt-in live tests spend Finic
-credits. See [contributing](https://github.com/supreplabs/langchain-finic/blob/main/CONTRIBUTING.md),
-[security reporting](https://github.com/supreplabs/langchain-finic/blob/main/SECURITY.md),
-and [release instructions](https://supreplabs.github.io/langchain-finic/releasing/).
+credits. See [contributing](https://github.com/supreplabs/langchain-finic/blob/main/CONTRIBUTING.md)
+and [security reporting](https://github.com/supreplabs/langchain-finic/blob/main/SECURITY.md).
 
 References: [Finic API](https://docs.finic.ai/reference/decide),
 [LangChain integration guidelines](https://docs.langchain.com/oss/python/contributing/integrations-langchain).

@@ -47,7 +47,7 @@ build-backend = "hatchling.build"
 packages = ["src/langchain_finic"]
 
 [tool.hatch.build.targets.sdist]
-include = ["/src", "/tests", "/examples", "/docs", "/scripts", "/pyproject.toml", "/README.md", "/LICENSE", "/CHANGELOG.md", "/CONTRIBUTING.md", "/SECURITY.md", "/CODE_OF_CONDUCT.md", "/Makefile", "/mkdocs.yml", "/uv.lock"]
+include = ["/src", "/tests", "/examples", "/docs", "/scripts", "/pyproject.toml", "/README.md", "/LICENSE", "/CHANGELOG.md", "/CONTRIBUTING.md", "/RELEASING.md", "/LANGCHAIN_LISTING.md", "/SECURITY.md", "/CODE_OF_CONDUCT.md", "/Makefile", "/mkdocs.yml", "/uv.lock"]
 
 [tool.ruff]
 line-length = 110
