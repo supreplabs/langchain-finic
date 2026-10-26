@@ -22,7 +22,7 @@ This package is alpha and is not endorsed by Finic or LangChain.
 Python 3.11 or newer and a Finic API key are required.
 
 ```bash
-pip install langchain-finic==0.1.0a4
+pip install langchain-finic==0.1.0a5
 export FINIC_API_KEY=your_key
 ```
 
@@ -76,7 +76,7 @@ flowchart LR
 For middleware, install the extra and the provider packages for your host chat models:
 
 ```bash
-pip install 'langchain-finic[middleware]==0.1.0a4'
+pip install 'langchain-finic[middleware]==0.1.0a5'
 ```
 
 ## Contributing
