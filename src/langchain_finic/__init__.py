@@ -1,4 +1,4 @@
-"""Community LangChain integration for Finic Grayson."""
+"""Independent LangChain integration for Finic Grayson."""
 
 from langchain_finic.classifier import FinicClassifier
 from langchain_finic.client import FinicClient, FinicError
