@@ -7,7 +7,7 @@
       members: [model, api_key, timeout, max_attempts, client, http_client, http_async_client, transport, async_transport, invoke, ainvoke, as_tool, close, aclose, to_json]
 
 Inherited Runnable methods such as `batch`, `abatch`, `bind`, and `with_config`
-follow the [LangChain Runnable interface](https://reference.langchain.com/python/langchain_core/runnables/).
+follow the [LangChain Runnable interface](https://reference.langchain.com/python/langchain-core/runnables).
 See the [usage guide](usage.md) for resource lifetime and invocation behavior.
 
 ## HTTP client and errors
