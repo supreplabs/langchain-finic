@@ -1,0 +1,9 @@
+name: Feature request
+description: Propose a focused integration improvement
+body:
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use case and proposed behavior
+    validations:
+      required: true

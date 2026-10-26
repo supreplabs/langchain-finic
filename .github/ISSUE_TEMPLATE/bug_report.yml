@@ -1,0 +1,25 @@
+name: Bug report
+description: Report a reproducible integration bug
+title: "bug: "
+body:
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Use fake credentials and synthetic inputs. Report vulnerabilities privately.
+      render: python
+    validations:
+      required: true
+  - type: textarea
+    id: versions
+    attributes:
+      label: Versions
+      description: Include Python, langchain-finic, langchain-core, and optional middleware dependencies.
+    validations:
+      required: true

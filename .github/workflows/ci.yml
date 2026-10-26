@@ -1,0 +1,70 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: '0.13.5'
+          python-version: '3.12'
+      - run: uv sync --locked --group dev --extra middleware
+      - run: make lint type_check docs
+  package:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12', '3.13', '3.14']
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: '0.13.5'
+          python-version: ${{ matrix.python }}
+      - run: uv sync --locked --group dev --extra middleware
+      - run: make test build
+      - name: Install base wheel outside checkout
+        run: |
+          uv venv /tmp/finic-base
+          uv pip install --python /tmp/finic-base/bin/python dist/*.whl
+          cd /tmp
+          /tmp/finic-base/bin/python "$GITHUB_WORKSPACE/scripts/smoke_install.py" --base-only
+      - name: Test installed middleware distribution
+        run: |
+          uv pip install --python /tmp/finic-base/bin/python 'langchain>=1,<2' 'langgraph>=1,<2' 'langchain-tests==1.1.9' pytest pytest-socket
+          cd /tmp
+          /tmp/finic-base/bin/python "$GITHUB_WORKSPACE/scripts/smoke_install.py"
+          /tmp/finic-base/bin/python -m pytest "$GITHUB_WORKSPACE/tests/unit_tests" -q
+      - name: Rebuild and install source distribution
+        run: |
+          mkdir /tmp/finic-source
+          tar -xzf dist/*.tar.gz -C /tmp/finic-source
+          uv build /tmp/finic-source/langchain_finic-* --wheel --out-dir /tmp/finic-rebuilt
+          uv venv /tmp/finic-sdist
+          uv pip install --python /tmp/finic-sdist/bin/python /tmp/finic-rebuilt/*.whl
+          cd /tmp
+          /tmp/finic-sdist/bin/python "$GITHUB_WORKSPACE/scripts/smoke_install.py" --base-only
+  minimum-dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: '0.13.5'
+          python-version: '3.11'
+      - run: uv build
+      - run: uv venv /tmp/finic-min
+      - run: >-
+          uv pip install --python /tmp/finic-min/bin/python dist/*.whl
+          pytest pytest-asyncio pytest-socket 'langchain-tests==1.0.0'
+          langchain-core==1.0.0 langchain==1.0.0 langgraph==1.0.0
+          langgraph-prebuilt==1.0.0 pydantic==2.12.0 httpx==0.28.1 langsmith==0.3.45
+      - run: /tmp/finic-min/bin/python -m pytest tests/unit_tests -q

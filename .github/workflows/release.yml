@@ -1,0 +1,114 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+  build:
+    needs: checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: '0.13.5'
+          python-version: '3.12'
+      - run: python scripts/check_release.py
+      - run: uv sync --locked --group build
+      - run: make build
+      - name: Record digests
+        run: sha256sum dist/* > SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: distributions
+          path: |
+            dist/
+            SHA256SUMS
+          if-no-files-found: error
+  testpypi:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: testpypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: distributions
+      - run: sha256sum --check SHA256SUMS
+      - uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+          attestations: true
+  verify-testpypi:
+    needs: testpypi
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: '0.13.5'
+          python-version: '3.12'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: distributions
+      - run: sha256sum --check SHA256SUMS
+      - run: python scripts/verify_registry.py testpypi --output /tmp/testpypi-files
+      - run: uv venv /tmp/testpypi-install
+      - name: Install exact TestPyPI wheel; dependencies from PyPI only
+        run: |
+          uv pip install --python /tmp/testpypi-install/bin/python --index-url https://pypi.org/simple /tmp/testpypi-files/*.whl
+          cd /tmp
+          /tmp/testpypi-install/bin/python "$GITHUB_WORKSPACE/scripts/smoke_install.py" --base-only
+  pypi:
+    needs: verify-testpypi
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: distributions
+      - run: sha256sum --check SHA256SUMS
+      - uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # release/v1
+        with:
+          skip-existing: true
+          attestations: true
+  verify-pypi:
+    needs: pypi
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: '0.13.5'
+          python-version: '3.12'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: distributions
+      - run: python scripts/verify_registry.py pypi --output /tmp/pypi-files
+      - run: uv venv /tmp/pypi-install
+      - name: Verify public installation
+        run: |
+          VERSION="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          uv pip install --python /tmp/pypi-install/bin/python --index-url https://pypi.org/simple "langchain-finic==$VERSION"
+          cd /tmp
+          /tmp/pypi-install/bin/python "$GITHUB_WORKSPACE/scripts/smoke_install.py" --base-only
+      - name: Create GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release create "$GITHUB_REF_NAME" dist/* SHA256SUMS --verify-tag --prerelease --title "$GITHUB_REF_NAME" --notes-file CHANGELOG.md
+          fi

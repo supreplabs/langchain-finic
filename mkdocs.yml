@@ -1,0 +1,21 @@
+site_name: langchain-finic
+site_url: https://supreplabs.github.io/langchain-finic/
+repo_url: https://github.com/supreplabs/langchain-finic
+repo_name: supreplabs/langchain-finic
+theme:
+  name: mkdocs
+nav:
+  - Getting started: index.md
+  - Usage and configuration: usage.md
+  - API reference: api.md
+  - Releasing: releasing.md
+  - LangChain listing: listing.md
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            show_source: false
+            show_signature_annotations: true
