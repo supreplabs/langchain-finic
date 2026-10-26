@@ -57,3 +57,6 @@ data/india/raw/
 
 # Generated documentation
 site/
+
+# Generated release presentation
+release-info/

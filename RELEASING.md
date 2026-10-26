@@ -39,7 +39,8 @@ need no API credentials. Publishing jobs alone receive OIDC permission.
 
 ## Validate and release
 
-1. Update `pyproject.toml` version and changelog, run `uv lock`, and commit the release.
+1. Update `pyproject.toml` and add a nonempty `## VERSION` section to `CHANGELOG.md`
+   (for example `## 0.1.0a5`). Run `uv lock` and commit the release.
 2. Run `make install` and `make check`. Confirm all compatibility CI jobs pass.
 3. Inspect wheel/sdist contents, generated documentation, and `scripts/check_dist.py`
    hash output. No benchmark datasets, research code, credentials, or case artifacts
@@ -59,8 +60,9 @@ installs the wheel in a fresh environment. Dependencies are resolved from PyPI o
 TestPyPI is not used as an extra dependency index.
 
 The same artifacts are then published to PyPI with attestations, downloaded and
-hash-verified, and installed by exact public version. A GitHub prerelease is created
-only after installation succeeds. All action references are pinned to commit SHAs.
+hash-verified, and installed by exact public version. A GitHub release is created
+only after installation succeeds. Alpha, beta, release-candidate, and development
+versions are marked as prereleases; final and post releases are not. All action references are pinned to commit SHAs.
 
 If publishing succeeds but a later job fails, rerun failed jobs in the **same run**
 to preserve the exact build artifacts. Existing files are skipped during upload,
@@ -94,3 +96,22 @@ an issue on their behalf.
 
 If a release is broken, publish a corrected version and consider yanking the bad
 version with a clear reason. Do not delete published files or move release tags.
+
+
+## Release presentation
+
+`scripts/release_metadata.py` selects only the changelog section matching the
+package version. It generates the title, prerelease flag, installation instructions,
+compatibility information, and checksum instructions before any registry upload.
+Missing, empty, or duplicate version sections stop the release. Release notes and
+metadata travel alongside the validated distribution artifacts through the workflow.
+
+Preview a future release's presentation locally:
+
+```bash
+uv run --locked --group build python scripts/release_metadata.py --output-dir release-info
+```
+
+Review `release-info/notes.md` and `release-info/metadata.json`. Updating an existing
+GitHub release title or description does not change its tag, distribution files, or
+PyPI description. Do not rerun an old release with new source to update presentation.

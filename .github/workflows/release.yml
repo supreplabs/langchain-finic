@@ -22,6 +22,7 @@ jobs:
           python-version: '3.12'
       - run: python scripts/check_release.py
       - run: uv sync --locked --group build
+      - run: uv run --locked --group build python scripts/release_metadata.py --output-dir release-info
       - run: make build
       - name: Record digests
         run: sha256sum dist/* > SHA256SUMS
@@ -31,6 +32,7 @@ jobs:
           path: |
             dist/
             SHA256SUMS
+            release-info/
           if-no-files-found: error
   testpypi:
     needs: build
@@ -105,10 +107,16 @@ jobs:
           uv pip install --python /tmp/pypi-install/bin/python --index-url https://pypi.org/simple "langchain-finic==$VERSION"
           cd /tmp
           /tmp/pypi-install/bin/python "$GITHUB_WORKSPACE/scripts/smoke_install.py" --base-only
-      - name: Create GitHub prerelease
+      - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          TITLE="$(python -c 'import json; print(json.load(open("release-info/metadata.json"))["title"])')"
+          PRERELEASE="$(python -c 'import json; print(str(json.load(open("release-info/metadata.json"))["prerelease"]).lower())')"
+          OPTIONS=(--verify-tag --title "$TITLE" --notes-file release-info/notes.md)
+          if [ "$PRERELEASE" = "true" ]; then
+            OPTIONS+=(--prerelease)
+          fi
           if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release create "$GITHUB_REF_NAME" dist/* SHA256SUMS --verify-tag --prerelease --title "$GITHUB_REF_NAME" --notes-file CHANGELOG.md
+            gh release create "$GITHUB_REF_NAME" dist/* SHA256SUMS "${OPTIONS[@]}"
           fi
