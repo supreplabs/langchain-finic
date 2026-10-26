@@ -19,10 +19,20 @@ standard tool tests. Network access is disabled. Tests must not load `.env` or
 require credentials. `langchain-tests` is pinned because its test contracts can
 change independently of this package. Update it deliberately with the lockfile.
 
-`make integration_test` makes two paid API requests (sync and async), with one
-attempt each, using synthetic evidence. It requires an exported `FINIC_API_KEY`;
-never put keys, production inputs, or raw responses in issues or fixtures.
-These tests check response contracts, not deterministic probability values.
+`make integration_test` runs LangChain's official `ToolsIntegrationTests` against
+the live Finic API, plus our sync and async classifier smoke tests. With the pinned
+`langchain-tests` version, this runs seven tests and makes six paid API requests:
+four tool calls (sync and async, with and without a `ToolCall`) and two classifier
+calls. Each request gets one attempt, using synthetic evidence. The remaining test
+checks that the inherited standard tests have not been overridden.
+
+Export `FINIC_API_KEY` before running the command; the Makefile sets
+`FINIC_LIVE_TESTS=1` and enables network access for this opt-in run. Direct pytest
+runs require both environment variables and `-o addopts=` to enable network access.
+The live suite is excluded from default tests and CI, and skips unless both
+environment variables are set. Never put keys, production inputs, or raw responses
+in issues or fixtures. These tests check response contracts, not deterministic
+probability values.
 
 Use `make format` for formatting and `uv lock` after dependency changes.
 Documentation lives in `docs/`; public API pages are generated from docstrings.

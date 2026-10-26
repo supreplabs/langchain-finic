@@ -1,7 +1,7 @@
 # Finic for LangChain
 
 `langchain-finic` connects Finic Grayson's typed decisions to LangChain and
-LangGraph. It is an MIT-licensed, community-maintained Python integration by
+LangGraph. It is an independent, MIT-licensed Python integration maintained by
 Suprep Labs. The package is alpha and is not endorsed by Finic or LangChain.
 
 ## Install

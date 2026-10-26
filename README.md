@@ -13,7 +13,8 @@
 [Releases](https://github.com/supreplabs/langchain-finic/releases)
 
 Compose probability-based decisions with LCEL, expose them as agent tools, and use
-middleware for model routing and tool screening. Community-maintained by Suprep Labs.
+middleware for model routing and tool screening.
+An independent integration maintained by Suprep Labs.
 This package is alpha and is not endorsed by Finic or LangChain.
 
 ## Quickstart

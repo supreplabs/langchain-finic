@@ -1,7 +1,7 @@
 [project]
 name = "langchain-finic"
 version = "0.1.0a4"
-description = "Community LangChain tools, Runnables, and middleware for Finic Grayson decisions"
+description = "LangChain tools, typed Runnables, and middleware for Finic Grayson."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
