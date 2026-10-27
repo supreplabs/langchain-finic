@@ -112,3 +112,75 @@ def route_state(state: ModelRouterState) -> None:
     if "finic_model_route" in state:
         assert_type(state["finic_model_route"]["selected"], str)
         assert_type(state["finic_model_route"]["fallback_used"], bool)
+
+
+async def bound_scoring(scorer: FinicScorer, record: ScoringInput, data: dict[str, Any], flag: bool) -> None:
+    bindings = (
+        scorer.bind(),
+        scorer.with_config(tags=["typing"]),
+        scorer.configurable_fields(model_id=ConfigurableField(id="model")),
+        scorer.bind().with_config(tags=["typing"]).bind(),
+        scorer.configurable_fields(model_id=ConfigurableField(id="model"))
+        .with_config(configurable={"model": "scm_test"})
+        .bind(),
+    )
+    for bound in bindings:
+        assert_type(bound.batch([data]), list[ScoringResponse])
+        assert_type(bound.batch([record], return_exceptions=True), list[ScoringResponse | Exception])
+        assert_type(bound.batch([data], return_exceptions=flag), list[ScoringResponse | Exception])
+        assert_type(await bound.abatch([data]), list[ScoringResponse])
+        assert_type(await bound.abatch([record], return_exceptions=True), list[ScoringResponse | Exception])
+        assert_type(await bound.abatch([data], return_exceptions=flag), list[ScoringResponse | Exception])
+        assert_type(bound.batch_as_completed([data]), Iterator[tuple[int, ScoringResponse]])
+        assert_type(
+            bound.batch_as_completed([data], return_exceptions=True),
+            Iterator[tuple[int, ScoringResponse | Exception]],
+        )
+        assert_type(
+            bound.batch_as_completed([record], return_exceptions=flag),
+            Iterator[tuple[int, ScoringResponse | Exception]],
+        )
+        assert_type(bound.abatch_as_completed([data]), AsyncIterator[tuple[int, ScoringResponse]])
+        assert_type(
+            bound.abatch_as_completed([data], return_exceptions=True),
+            AsyncIterator[tuple[int, ScoringResponse | Exception]],
+        )
+        assert_type(
+            bound.abatch_as_completed([record], return_exceptions=flag),
+            AsyncIterator[tuple[int, ScoringResponse | Exception]],
+        )
+
+
+async def bound_decisions(
+    classifier: FinicClassifier, request: DecisionRequest, data: dict[str, Any], flag: bool
+) -> None:
+    bindings = (
+        classifier.bind(),
+        classifier.with_config(tags=["typing"]),
+        classifier.bind().with_config(tags=["typing"]).bind(),
+    )
+    for bound in bindings:
+        assert_type(bound.batch([data]), list[DecisionResponse])
+        assert_type(bound.batch([request], return_exceptions=True), list[DecisionResponse | Exception])
+        assert_type(bound.batch([data], return_exceptions=flag), list[DecisionResponse | Exception])
+        assert_type(await bound.abatch([data]), list[DecisionResponse])
+        assert_type(await bound.abatch([request], return_exceptions=True), list[DecisionResponse | Exception])
+        assert_type(await bound.abatch([data], return_exceptions=flag), list[DecisionResponse | Exception])
+        assert_type(bound.batch_as_completed([data]), Iterator[tuple[int, DecisionResponse]])
+        assert_type(
+            bound.batch_as_completed([data], return_exceptions=True),
+            Iterator[tuple[int, DecisionResponse | Exception]],
+        )
+        assert_type(
+            bound.batch_as_completed([request], return_exceptions=flag),
+            Iterator[tuple[int, DecisionResponse | Exception]],
+        )
+        assert_type(bound.abatch_as_completed([data]), AsyncIterator[tuple[int, DecisionResponse]])
+        assert_type(
+            bound.abatch_as_completed([data], return_exceptions=True),
+            AsyncIterator[tuple[int, DecisionResponse | Exception]],
+        )
+        assert_type(
+            bound.abatch_as_completed([request], return_exceptions=flag),
+            AsyncIterator[tuple[int, DecisionResponse | Exception]],
+        )

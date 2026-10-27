@@ -1,11 +1,10 @@
 """Native LangChain decision Runnable for the Grayson probability API."""
 
 import logging
-from typing import Any, Self, cast
+from typing import Any, cast
 
 from langchain_core.runnables import (
     Runnable,
-    RunnableBinding,
     RunnableConfig,
     RunnableLambda,
 )
@@ -14,6 +13,7 @@ from langchain_core.tools import BaseTool, StructuredTool
 from langsmith.run_helpers import get_current_run_tree
 from pydantic import BaseModel, Field
 
+from langchain_finic._binding import FinicBinding
 from langchain_finic._config import env_option
 from langchain_finic._runnable import FinicRunnable
 from langchain_finic.models import DecisionRequest, DecisionResponse, ModelName
@@ -86,24 +86,8 @@ class _DecisionToolConversion:
         )
 
 
-class _DecisionBinding(_DecisionToolConversion, RunnableBinding[DecisionRequest, DecisionResponse]):
+class _DecisionBinding(_DecisionToolConversion, FinicBinding[DecisionRequest, DecisionResponse]):
     """Keep decision tool conversion when configuration/kwargs are bound."""
-
-    def with_config(self, config: RunnableConfig | None = None, **kwargs: Any) -> Self:
-        return cast(Self, super().with_config(config, **kwargs))
-
-    def bind(self, **kwargs: Any) -> Self:
-        return cast(Self, super().bind(**kwargs))
-
-    def invoke(
-        self, input: DecisionRequest | dict[str, Any], config: RunnableConfig | None = None, **kwargs: Any
-    ) -> DecisionResponse:
-        return super().invoke(cast(DecisionRequest, input), config, **kwargs)
-
-    async def ainvoke(
-        self, input: DecisionRequest | dict[str, Any], config: RunnableConfig | None = None, **kwargs: Any
-    ) -> DecisionResponse:
-        return await super().ainvoke(cast(DecisionRequest, input), config, **kwargs)
 
     @classmethod
     def get_lc_namespace(cls) -> list[str]:

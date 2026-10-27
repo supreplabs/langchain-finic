@@ -3,11 +3,10 @@
 import asyncio
 import logging
 from collections.abc import AsyncIterator, Iterator, Sequence
-from typing import Any, Literal, Self, cast, overload
+from typing import Any, Literal, cast, overload
 
 from langchain_core.runnables import (
     Runnable,
-    RunnableBinding,
     RunnableConfig,
     RunnableLambda,
     RunnableSerializable,
@@ -18,6 +17,7 @@ from langchain_core.tools import BaseTool, StructuredTool
 from langsmith.run_helpers import get_current_run_tree
 from pydantic import BaseModel, Field, StrictBool, TypeAdapter, create_model
 
+from langchain_finic._binding import FinicBinding
 from langchain_finic._runnable import FinicRunnable
 from langchain_finic.models import Text
 from langchain_finic.scoring_models import ScoringInput, ScoringRequest, ScoringResponse
@@ -99,23 +99,7 @@ class _ScorerToolConversion:
         )
 
 
-class _ScorerBinding(_ScorerToolConversion, RunnableBinding[ScoringInput, ScoringResponse]):
-    def with_config(self, config: RunnableConfig | None = None, **kwargs: Any) -> Self:
-        return cast(Self, super().with_config(config, **kwargs))
-
-    def bind(self, **kwargs: Any) -> Self:
-        return cast(Self, super().bind(**kwargs))
-
-    def invoke(
-        self, input: ScoringInput | dict[str, Any], config: RunnableConfig | None = None, **kwargs: Any
-    ) -> ScoringResponse:
-        return super().invoke(cast(ScoringInput, input), config, **kwargs)
-
-    async def ainvoke(
-        self, input: ScoringInput | dict[str, Any], config: RunnableConfig | None = None, **kwargs: Any
-    ) -> ScoringResponse:
-        return await super().ainvoke(cast(ScoringInput, input), config, **kwargs)
-
+class _ScorerBinding(_ScorerToolConversion, FinicBinding[ScoringInput, ScoringResponse]):
     @classmethod
     def get_lc_namespace(cls) -> list[str]:
         return ["langchain_finic", "scorer"]

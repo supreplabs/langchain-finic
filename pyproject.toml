@@ -75,5 +75,5 @@ no_implicit_optional = true
 
 
 [[tool.mypy.overrides]]
-module = ["langchain_finic.middleware", "langchain_finic.scorer", "langchain_finic.classifier", "langchain_finic._runnable"]
+module = ["langchain_finic.middleware", "langchain_finic.scorer", "langchain_finic.classifier", "langchain_finic._runnable", "langchain_finic._binding"]
 disallow_untyped_defs = true
