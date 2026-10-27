@@ -171,7 +171,7 @@ def review_with_agent(chat_model: BaseChatModel):
 ## Agent middleware
 
 ```bash
-pip install 'langchain-finic[middleware]==0.1.0a6'
+pip install 'langchain-finic[middleware]==0.1.0a7'
 # Also install the provider package for your host chat models.
 ```
 

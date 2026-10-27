@@ -1,6 +1,6 @@
 # Releasing
 
-Release target: **0.1.0a6**, repository **supreplabs/langchain-finic**.
+Release target: **0.1.0a7**, repository **supreplabs/langchain-finic**.
 The package remains alpha. A release is complete only when PyPI installation is verified.
 
 ## One-time account setup
@@ -40,17 +40,18 @@ need no API credentials. Publishing jobs alone receive OIDC permission.
 ## Validate and release
 
 1. Update `pyproject.toml` and add a nonempty `## VERSION` section to `CHANGELOG.md`
-   (for example `## 0.1.0a6`). Run `uv lock` and commit the release.
+   (for example `## 0.1.0a7`). Run `uv lock` and commit the release.
 2. Run `make install` and `make check`. Confirm all compatibility CI jobs pass.
 3. Inspect wheel/sdist contents, generated documentation, and `scripts/check_dist.py`
-   hash output. No benchmark datasets, research code, credentials, or case artifacts
-   belong in this repository or its distributions.
+   hash output. Exclude customer datasets, private research artifacts, credentials,
+   and local case reports. The source distribution includes small, version-controlled
+   synthetic evaluation fixtures and their runner; the wheel contains only package code.
 4. Confirm both pending publishers are configured and the package name is still
    available to this maintainer. Create and push the matching version tag:
 
 ```bash
-git tag -a v0.1.0a6 -m 'Release 0.1.0a6'
-git push origin v0.1.0a6
+git tag -s v0.1.0a7 -m 'Release 0.1.0a7'
+git push origin v0.1.0a7
 ```
 
 The release workflow reruns CI, checks the tag against metadata, builds the release
@@ -76,8 +77,8 @@ replace an already published version; use a new version for changed artifacts.
 `workflow_dispatch` must be dispatched on the version tag, not `main`.
 
 ```bash
-pip install langchain-finic==0.1.0a6
-pip install 'langchain-finic[middleware]==0.1.0a6'
+pip install langchain-finic==0.1.0a7
+pip install 'langchain-finic[middleware]==0.1.0a7'
 ```
 
 ## Live smoke checks
