@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add a versioned synthetic System 1 evaluation corpus and bounded opt-in runner,
+  with frozen held-out configuration, failure-inclusive metrics and explicit limitations.
+
 - Record sanitized daily live-test evidence and add installed-package application validation.
 
 ## 0.1.0a6
