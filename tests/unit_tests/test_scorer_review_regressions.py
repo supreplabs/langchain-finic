@@ -182,3 +182,72 @@ def test_completion_order_limits_and_failures(asynchronous, limit):
     assert {i for i, _ in results} == set(range(12))
     assert isinstance(dict(results)[0], Exception)
     assert active == 0
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_explicit_schema_optional_defaults_and_chained_fields(asynchronous):
+    model = FinicScorer(
+        model_id="scm_test",
+        api_key="test",
+        transport=httpx.MockTransport(response),
+        async_transport=httpx.MockTransport(response),
+    )
+    wrapped = (
+        model.configurable_fields(model_id=ConfigurableField(id="m"))
+        .configurable_fields(timeout=ConfigurableField(id="t"))
+        .with_config(configurable={"m": "scm_other", "t": 45})
+    )
+    tool = wrapped.as_tool(args_schema=ScoringInput)
+
+    async def run():
+        async with model:
+            return await tool.ainvoke(value())
+
+    if asynchronous:
+        result = asyncio.run(run())
+    else:
+        with model:
+            result = tool.invoke(value())
+    assert result["model_id"] == "scm_other"
+
+
+@pytest.mark.parametrize("bad", ["false", "true", 1, None])
+def test_capability_options_require_booleans(bad):
+    with FinicScorer(model_id="scm_test", api_key="test") as model:
+        with pytest.raises(ValueError):
+            model.as_tool(allow_schema_update=bad)
+        with pytest.raises(ValueError):
+            model.as_tool(allow_schema_bypass=bad)
+
+
+def test_cancel_completion_iterator_stops_queued_writes():
+    async def run():
+        started = []
+        ready = asyncio.Event()
+        active = 0
+
+        async def handle(request):
+            nonlocal active
+            started.append(json.loads(request.content)["score_id"])
+            active += 1
+            if len(started) == 2:
+                ready.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                active -= 1
+
+        async with FinicScorer(
+            model_id="scm_test", api_key="test", async_transport=httpx.MockTransport(handle)
+        ) as model:
+            iterator = model.abatch_as_completed([value(i) for i in range(12)], {"max_concurrency": 2})
+            pending = asyncio.create_task(anext(iterator))
+            await asyncio.wait_for(ready.wait(), 1)
+            pending.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await pending
+            await asyncio.sleep(0.01)
+            assert len(started) == 2
+            assert active == 0
+
+    asyncio.run(run())

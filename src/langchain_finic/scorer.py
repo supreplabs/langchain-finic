@@ -1,15 +1,22 @@
 """LangChain Runnable for a custom Finic scoring model."""
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator, Iterator, Sequence
 from typing import Any, Literal, cast, overload
 
-from langchain_core.runnables import Runnable, RunnableBinding, RunnableConfig, RunnableLambda
+from langchain_core.runnables import (
+    Runnable,
+    RunnableBinding,
+    RunnableConfig,
+    RunnableLambda,
+    RunnableSerializable,
+)
 from langchain_core.runnables.config import ensure_config, get_config_list
 from langchain_core.runnables.utils import AnyConfigurableField
 from langchain_core.tools import BaseTool, StructuredTool
 from langsmith.run_helpers import get_current_run_tree
-from pydantic import BaseModel, Field, create_model
+from pydantic import BaseModel, Field, StrictBool, TypeAdapter, create_model
 
 from langchain_finic._runnable import FinicRunnable
 from langchain_finic.models import Text
@@ -24,13 +31,15 @@ class _ScoringTool(StructuredTool):
     disabled_flags: frozenset[str] = Field(exclude=True)
 
     def _parse_input(self, tool_input: str | dict[str, Any], tool_call_id: str | None):
-        def check(value):
-            if isinstance(value, dict) and self.disabled_flags.intersection(value):
+        def check(value, *, parsed=False):
+            if isinstance(value, dict) and any(
+                key in value and (not parsed or value[key] is not None) for key in self.disabled_flags
+            ):
                 raise ValueError("Scoring tool schema changes/bypass require explicit construction opt-in")
 
         check(tool_input)
         parsed = super()._parse_input(tool_input, tool_call_id)
-        check(parsed)
+        check(parsed, parsed=True)
         return parsed
 
 
@@ -45,6 +54,8 @@ class _ScorerToolConversion:
         allow_schema_update: bool = False,
         allow_schema_bypass: bool = False,
     ) -> BaseTool:
+        allow_schema_update = TypeAdapter(StrictBool).validate_python(allow_schema_update)
+        allow_schema_bypass = TypeAdapter(StrictBool).validate_python(allow_schema_bypass)
         disabled = frozenset(
             key
             for key, enabled in (
@@ -90,6 +101,10 @@ class _ScorerBinding(_ScorerToolConversion, RunnableBinding[ScoringInput, Scorin
     @classmethod
     def get_lc_namespace(cls) -> list[str]:
         return ["langchain_finic", "scorer"]
+
+    def configurable_fields(self, **kwargs: AnyConfigurableField) -> "_ScorerBinding":
+        bound = cast(RunnableSerializable[ScoringInput, ScoringResponse], self.bound)
+        return self.model_copy(update={"bound": bound.configurable_fields(**kwargs)})
 
 
 class FinicScorer(_ScorerToolConversion, FinicRunnable[ScoringInput, ScoringResponse]):
@@ -243,10 +258,33 @@ class FinicScorer(_ScorerToolConversion, FinicRunnable[ScoringInput, ScoringResp
     async def abatch_as_completed(
         self, inputs: Sequence[ScoringInput], config=None, *, return_exceptions=False, **kwargs: Any
     ) -> AsyncIterator[tuple[int, ScoringResponse | Exception]]:
-        async for result in super().abatch_as_completed(
-            inputs, self._batch_configs(config, len(inputs)), return_exceptions=return_exceptions, **kwargs
-        ):
-            yield result
+        configs = self._batch_configs(config, len(inputs))
+        if not inputs:
+            return
+        limit = configs[0]["max_concurrency"]
+        if limit < 1:
+            raise ValueError("max_concurrency must be positive")
+        semaphore = asyncio.Semaphore(limit)
+
+        async def run(index: int) -> tuple[int, ScoringResponse | Exception]:
+            async with semaphore:
+                try:
+                    result = await self.ainvoke(inputs[index], configs[index], **kwargs)
+                except Exception as exc:
+                    if not return_exceptions:
+                        raise
+                    return index, exc
+                return index, result
+
+        tasks = [asyncio.create_task(run(index)) for index in range(len(inputs))]
+        try:
+            for completed in asyncio.as_completed(tasks):
+                yield await completed
+        finally:
+            # Do not leave queued writes alive after cancellation, closure or failure.
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
 
     def with_config(self, config: RunnableConfig | None = None, **kwargs: Any) -> _ScorerBinding:
         return _ScorerBinding(bound=self, config=cast(RunnableConfig, {**(config or {}), **kwargs}))
