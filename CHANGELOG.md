@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+- Keep lifecycle validation active under optimized Python and persist pending score IDs before writes.
+
+- Add a six-endpoint coverage matrix and separately opted-in synthetic lifecycle validation.
+
+- Add FinicScorer, selected lifecycle tools, and checkpointed composition examples.
+- Accept documented text outcome labels in JSON and CSV without rewriting inputs.
+
+- Add typed sync/async custom scoring, creation, discovery, calibration, and job APIs.
+- Use conservative write retries and explicit bounded job polling.
+- Preserve legacy state updates and configured/bound decision-tool conversion.
+
+- Align decisions with Finic data/context inputs, retaining state as a compatibility alias.
+- Match documented base-rate boundaries and expose structured provider error identifiers.
+
 ## 0.1.0a5
 
 - Add opt-in live LangChain standard tool integration tests alongside sync/async

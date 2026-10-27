@@ -21,9 +21,9 @@ change independently of this package. Update it deliberately with the lockfile.
 
 `make integration_test` runs LangChain's official `ToolsIntegrationTests` against
 the live Finic API, plus our sync and async classifier smoke tests. With the pinned
-`langchain-tests` version, this runs seven tests and makes six paid API requests:
+`langchain-tests` version, this runs nine tests and makes eight paid API requests:
 four tool calls (sync and async, with and without a `ToolCall`) and two classifier
-calls. Each request gets one attempt, using synthetic evidence. The remaining test
+calls, plus two documented data/context checks. Each request gets one attempt, using synthetic evidence. The remaining test
 checks that the inherited standard tests have not been overridden.
 
 Export `FINIC_API_KEY` before running the command; the Makefile sets
@@ -40,7 +40,7 @@ release workflows also run it before building and publishing. Configure the
 repository secret `FINIC_API_KEY` to enable these runs. If it is absent, the live
 job is skipped with an explanation in the workflow summary; releases can proceed.
 If it is present, live test failures fail the workflow and block publishing.
-Each enabled run uses Python 3.12 and makes six API requests without retries.
+Each enabled run uses Python 3.12 and makes eight API requests without retries.
 
 Use `make format` for formatting and `uv lock` after dependency changes.
 Documentation lives in `docs/`; public API pages are generated from docstrings.
@@ -70,3 +70,8 @@ order shown. Prefer links over duplicated explanations and check relative links.
 Follow [LangChain's documentation quality guidance](https://docs.langchain.com/oss/python/contributing/documentation#quality-standards).
 Its Mintlify-specific syntax applies to LangChain-hosted pages; this repository's
 site uses MkDocs and generated Python API references.
+
+Custom scoring/lifecycle verification is a separate opt-in and creates a persistent
+server-side model. It is excluded from PR CI and the daily decision suite. Read
+[the test coverage and lifecycle guide](tests/README.md) before using
+`make lifecycle_test`; a missing key or lifecycle opt-in skips that suite.

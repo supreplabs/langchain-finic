@@ -78,7 +78,7 @@ pip install 'langchain-finic[middleware]==0.1.0a5'
 ## Live smoke checks
 
 Default tests and installation checks use mock HTTP and spend no credits. To make
-six explicit live requests with fictional data (seven checks, including LangChain's
+eight explicit live requests with fictional data (nine checks, including LangChain's
 standard tool integration suite):
 
 ```bash

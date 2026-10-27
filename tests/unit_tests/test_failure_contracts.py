@@ -60,7 +60,7 @@ def test_partial_batch_preserves_order_or_raises(request_body, response_body, as
     calls = []
 
     def handle(request):
-        case = json.loads(request.content)["state"]["case"]
+        case = json.loads(request.content)["data"]["case"]
         calls.append(case)
         if case == "bad":
             return httpx.Response(401, text="private-case-details")

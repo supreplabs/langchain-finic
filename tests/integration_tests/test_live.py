@@ -1,4 +1,4 @@
-"""Explicit opt-in: six paid calls, no retries or customer data."""
+"""Explicit opt-in: eight paid calls, no retries or customer data."""
 
 import asyncio
 import os
@@ -52,4 +52,21 @@ def test_live_async():
 
     result = asyncio.run(run())
     assert 0 <= result.nouls["risk"].noul <= 1
+    assert result.request_id
+
+
+@pytest.mark.parametrize(
+    "evidence",
+    [
+        {"data": {"amount": 10}, "context": "Fictional routine payment"},
+        {"context": "Fictional customer making a routine payment from their usual device"},
+    ],
+)
+def test_live_documented_inputs(evidence):
+    request = DecisionRequest(
+        **evidence, questions={"risk": Noul(instructions="Does the evidence suggest fraud?")}
+    )
+    with FinicClassifier(max_attempts=1) as classifier:
+        result = classifier.invoke(request)
+    result.validate_for(request)
     assert result.request_id
