@@ -87,7 +87,11 @@ make integration_test
 ```
 
 Do not commit the key or record production inputs. Tests verify the response contract,
-not an exact probability. No live calls run in pull requests or release CI.
+not an exact probability. No live calls run in pull requests. Future release
+workflows run the same live suite before building and publishing when the repository
+secret `FINIC_API_KEY` is configured. A missing secret skips the live job without
+blocking the release; a failed live test blocks publishing. The separate live
+workflow also runs daily and supports manual runs on `main`.
 
 ## After publication
 

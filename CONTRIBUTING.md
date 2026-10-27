@@ -29,10 +29,18 @@ checks that the inherited standard tests have not been overridden.
 Export `FINIC_API_KEY` before running the command; the Makefile sets
 `FINIC_LIVE_TESTS=1` and enables network access for this opt-in run. Direct pytest
 runs require both environment variables and `-o addopts=` to enable network access.
-The live suite is excluded from default tests and CI, and skips unless both
+The live suite is excluded from default tests and pull-request CI, and skips unless both
 environment variables are set. Never put keys, production inputs, or raw responses
 in issues or fixtures. These tests check response contracts, not deterministic
 probability values.
+
+The **Live integration tests** GitHub Actions workflow runs daily on `main` at
+03:17 UTC and can be triggered manually from the Actions tab on `main`. Future
+release workflows also run it before building and publishing. Configure the
+repository secret `FINIC_API_KEY` to enable these runs. If it is absent, the live
+job is skipped with an explanation in the workflow summary; releases can proceed.
+If it is present, live test failures fail the workflow and block publishing.
+Each enabled run uses Python 3.12 and makes six API requests without retries.
 
 Use `make format` for formatting and `uv lock` after dependency changes.
 Documentation lives in `docs/`; public API pages are generated from docstrings.
