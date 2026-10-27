@@ -13,6 +13,9 @@ Keep changes focused, describe the behavior and validation in your pull request,
 and add regression tests for bugs. Public imports and serialized class identifiers
 are compatibility commitments, including during the alpha period. Discuss breaking
 changes in an issue before implementing them. Use conventional commit titles.
+Follow the [compatibility policy](docs/compatibility.md) when changing public
+interfaces, defaults, dependencies, or serialization. Release promotion requires
+the evidence and checklist in [RELEASING.md](RELEASING.md#promotion-gates).
 
 `tests/unit_tests` includes mocked framework composition tests and LangChain's
 standard tool tests. Network access is disabled. Tests must not load `.env` or
