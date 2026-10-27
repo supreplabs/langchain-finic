@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Include registered tool semantics in screening and add bounded context-builder hooks for routing and screening.
+
 - Record sanitized daily live-test evidence and add installed-package application validation.
 
 ## 0.1.0a6
