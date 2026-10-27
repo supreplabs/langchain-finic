@@ -81,13 +81,20 @@ Budget and effects:
   limits before running. A suite failure does not roll back accepted work.
 - Model/job/request/score IDs, status, counts, and scores are saved to the evidence
   file. Credentials, customer records, and provider error messages are omitted.
-  Existing files are never overwritten. Store evidence according to your project policy.
+  Each score attempt records its model/score ID as `pending` before the write,
+  then saves the response and marks it `validated` after validation. An ambiguous
+  failure leaves the attempt pending for reconciliation; it is never retried
+  automatically. Existing files are never overwritten. Store evidence according
+  to your project policy.
 - Finic documents no deletion endpoint. A model remains after success or failure.
   A deadline or interrupted write does not authorize creating another model.
   Inspect the saved IDs or the Finic dashboard before deciding what to do next.
 
-Assertions check accepted contracts, identities, score range, matched outcomes,
-and job success. They deliberately do not assert exact scores or claim accuracy.
+Explicit runtime checks validate contracts, identities, score range, matched
+outcomes, and job success, including under `python -O` / `PYTHONOPTIMIZE=1`.
+Offline regressions verify optimized execution still polls calibration and rejects
+invalid outcomes, and that first/second score timeouts retain the attempted IDs.
+The checks do not require exact scores or claim accuracy.
 
 ## Recorded provider validation
 
