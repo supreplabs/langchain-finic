@@ -60,7 +60,12 @@ installs the wheel in a fresh environment. Dependencies are resolved from PyPI o
 TestPyPI is not used as an extra dependency index.
 
 The same artifacts are then published to PyPI with attestations, downloaded and
-hash-verified, and installed by exact public version. A GitHub release is created
+hash-verified, and installed by exact public version. Public installation refreshes this package's index
+metadata and retries up to five times (120 seconds per attempt, with 5/10/20/40-second
+delays) to tolerate short PyPI index propagation delays. Exhausted retries fail the
+workflow; rerun failed jobs using the original artifacts.
+
+A GitHub release is created
 only after installation succeeds. Alpha, beta, release-candidate, and development
 versions are marked as prereleases; final and post releases are not. All action references are pinned to commit SHAs.
 

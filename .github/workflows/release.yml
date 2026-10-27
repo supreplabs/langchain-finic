@@ -107,8 +107,7 @@ jobs:
       - run: uv venv /tmp/pypi-install
       - name: Verify public installation
         run: |
-          VERSION="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
-          uv pip install --python /tmp/pypi-install/bin/python --index-url https://pypi.org/simple "langchain-finic==$VERSION"
+          python scripts/verify_install.py --python /tmp/pypi-install/bin/python
           cd /tmp
           /tmp/pypi-install/bin/python "$GITHUB_WORKSPACE/scripts/smoke_install.py" --base-only
       - name: Create GitHub release
