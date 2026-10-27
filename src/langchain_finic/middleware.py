@@ -103,7 +103,7 @@ class ModelRouterMiddleware(_ClassifierMiddleware):
         return DecisionRequest.model_validate(
             {
                 "model": self.classifier.model,
-                "state": {"message": message},
+                "data": {"message": message},
                 "questions": {"model_route": self.question},
             }
         )
@@ -202,7 +202,7 @@ class AutoModeMiddleware(_ClassifierMiddleware):
     def _request(self, request):
         return DecisionRequest(
             model=self.classifier.model,
-            state={
+            data={
                 "messages": request.state.get("messages", []),
                 "tool_call": {"name": request.tool_call["name"], "args": request.tool_call["args"]},
             },

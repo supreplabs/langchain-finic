@@ -24,7 +24,7 @@ This example sends fictional evidence to Finic and spends API credits.
 from langchain_finic import DecisionRequest, FinicClassifier, Noul
 
 request = DecisionRequest(
-    state={"events": ["New device", "Payment to an unfamiliar recipient"]},
+    data={"events": ["New device", "Payment to an unfamiliar recipient"]},
     questions={"takeover": Noul(instructions="Does the evidence suggest account takeover?")},
 )
 with FinicClassifier() as classifier:

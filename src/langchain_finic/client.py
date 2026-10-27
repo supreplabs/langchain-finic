@@ -2,8 +2,10 @@
 
 import asyncio
 import random
+import re
 import time
 from threading import Lock
+from typing import NoReturn
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError, field_validator
@@ -17,7 +19,17 @@ RETRYABLE = {429, 500, 502, 503, 504}
 class FinicError(RuntimeError):
     """Provider or response-contract error with optional HTTP status and request ID."""
 
-    def __init__(self, message: str, *, status: int | None = None, request_id: str | None = None):
+    def __init__(
+        self,
+        message: str,
+        *,
+        status: int | None = None,
+        request_id: str | None = None,
+        error_type: str | None = None,
+        param: str | None = None,
+    ):
+        self.error_type = error_type
+        self.param = param
         self.status = status
         self.request_id = request_id
         super().__init__(message)
@@ -161,8 +173,28 @@ class FinicClient:
                 raise FinicError(
                     "Finic response does not match the decision contract", request_id=request_id
                 ) from None
+        FinicClient._raise_http_error(response)
+
+    @staticmethod
+    def _raise_http_error(response: httpx.Response) -> NoReturn:
+        request_id = response.headers.get("x-request-id")
+        try:
+            payload = response.json()
+            error = payload.get("error", {}) if isinstance(payload, dict) else {}
+            error = error if isinstance(error, dict) else {}
+        except ValueError:
+            error = {}
+
+        # Accept only bounded machine identifiers, never the provider message/body.
+        def identifier(value):
+            return (
+                value
+                if isinstance(value, str) and re.fullmatch(r"[A-Za-z0-9_.\[\]-]{1,200}", value)
+                else None
+            )
+
         hints = {
-            400: "Invalid decision request",
+            400: "Invalid Finic request",
             401: "Check FINIC_API_KEY; authentication failed",
             402: "Finic credits exhausted; check billing in the portal",
             413: "Case exceeds Finic's token or body size limit",
@@ -173,6 +205,8 @@ class FinicClient:
             hints.get(response.status_code, "Finic request failed") + f" (HTTP {response.status_code})",
             status=response.status_code,
             request_id=request_id,
+            error_type=identifier(error.get("type")),
+            param=identifier(error.get("param")),
         )
 
     def decide(self, request: DecisionRequest) -> DecisionResponse:

@@ -10,7 +10,7 @@ Finic spend API credits; the package does not load `.env` files.
 from langchain_finic import Choice, DecisionRequest, FinicClassifier, Noul
 
 request = DecisionRequest(
-    state={"events": ["New device", "Payment to an unfamiliar recipient"]},
+    data={"events": ["New device", "Payment to an unfamiliar recipient"]},
     questions={
         "takeover": Noul(instructions="Does the evidence suggest account takeover?"),
         "route": Choice(
@@ -26,7 +26,7 @@ with FinicClassifier(timeout=75, max_attempts=2) as classifier:
     print(route_chain.invoke(request, config={"tags": ["review"]}))
 ```
 
-Each invocation accepts a `DecisionRequest` or a dictionary with `state`,
+Each invocation accepts a `DecisionRequest` or a dictionary with `data` and/or `context`,
 `questions`, and an optional `model`. State can be text, a JSON object or array,
 or LangChain messages nested within those inputs. Messages are normalized to
 role/content/tool-call JSON. Request data is sent to Finic.
@@ -255,3 +255,22 @@ appear in traces. Choose the data you send and your tracing retention accordingl
 Load serialized configurations only from trusted sources, supplying the secret
 and the loader's class allowlist where required. Configurations containing custom
 clients or transports are not serializable. See [security reporting and data handling](https://github.com/supreplabs/langchain-finic/blob/main/SECURITY.md).
+
+## Migrating decision inputs
+
+The current Finic API accepts `data` (JSON object, array, or nonblank text),
+`context` (nonblank text), or both. LangChain messages nested in `data` are
+normalized to JSON. Existing `state=` inputs and the `.state` accessor remain
+supported as compatibility aliases for `data`. Serialization and tool schemas
+use `data`; passing both `state` and `data` raises a validation error.
+Legacy `request.state = ...` and `request.model_copy(update={"state": ...})`
+update the canonical evidence after validation. Invalid legacy updates leave the
+original request unchanged. Default decision tools, explicit `DecisionRequest`
+tool schemas, and tools built after `bind()`/`with_config()` retain this input
+compatibility on the minimum supported LangChain version.
+
+Noul and MultiChoice base rates must be strictly between zero and one. Choice
+and Score rates may sum to one within 0.02; Choice rates are normalized to one.
+`FinicError.error_type` and `.param` expose bounded provider identifiers alongside
+`.status` and `.request_id`. The default error message omits provider messages
+and bodies; treat these identifiers and request traces as potentially sensitive.

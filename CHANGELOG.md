@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Preserve legacy state updates and configured/bound decision-tool conversion.
+
+- Align decisions with Finic data/context inputs, retaining state as a compatibility alias.
+- Match documented base-rate boundaries and expose structured provider error identifiers.
+
 ## 0.1.0a5
 
 - Add opt-in live LangChain standard tool integration tests alongside sync/async
