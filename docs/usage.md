@@ -274,3 +274,47 @@ and Score rates may sum to one within 0.02; Choice rates are normalized to one.
 `FinicError.error_type` and `.param` expose bounded provider identifiers alongside
 `.status` and `.request_id`. The default error message omits provider messages
 and bodies; treat these identifiers and request traces as potentially sensitive.
+
+### Selecting assessment context
+
+`ModelRouterMiddleware` and `AutoModeMiddleware` accept an optional
+`context_builder(state, runtime_context)` callable. It must be a pure synchronous
+function returning a JSON object (nested LangChain messages are normalized).
+The same callable is used by sync and async hooks. Do not perform blocking I/O or
+mutate state in this hook; fetch any needed context before invoking the agent.
+
+For routing, it replaces the default latest-message evidence. For screening,
+it replaces the default full conversation under `application_context`; the exact
+proposed `tool_call` and registered `tool_definition` remain separate and cannot
+be overwritten by the hook. For example:
+
+```python
+def assessment_context(state, runtime_context):
+    return {
+        "recent_messages": state["messages"][-6:],
+        "policy": (runtime_context or {}).get("policy", "Review uncertain cases"),
+    }
+```
+
+Select a sufficient window or pass a trusted task summary: a bare “Continue”
+usually needs preceding task context. Keep policy separate from quoted material
+and tool outputs. Use the hook only with trusted application code. Selected data
+can appear in opt-in traces; avoid unnecessary customer fields.
+
+Passing `BaseTool` objects to screening includes their registered descriptions
+and model-facing argument schemas. Name-only registration has no tool semantics;
+use descriptive instructions or pass the actual tool when side effects matter.
+A description is assessment evidence, not an authorization grant.
+
+Both middleware reject assessment envelopes larger than `max_context_bytes`
+(default 60,000 UTF-8 JSON bytes, configurable up to 2 MB). Nothing is silently
+truncated. This is a byte budget, not Finic's token count; server limits still
+apply. Invalid/oversized context blocks screened tools; router validation errors
+use the configured fallback or raise if no fallback exists. Other exceptions in
+application hooks propagate from routing and block tool screening; cancellation
+propagates. Configure a fallback when evidence can be unavailable.
+
+Routing remains once per invocation. If tools reveal a more complex task, an
+application can end that phase and invoke a second agent using the powerful model
+with a task summary and the new evidence. Do not replay accepted writes during
+escalation. No automatic reclassification or approval bypass is introduced.
