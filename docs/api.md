@@ -14,7 +14,7 @@ See the [usage guide](usage.md) for resource lifetime and invocation behavior.
 
 ::: langchain_finic.client.FinicClient
     options:
-      members: [__init__, decide, adecide, close, aclose]
+      members: [__init__, decide, adecide, score, ascore, create_score, acreate_score, list_scores, alist_scores, calibrate, acalibrate, get_job_status, aget_job_status, wait_for_job, await_job, close, aclose]
 
 ::: langchain_finic.client.FinicError
 
@@ -41,3 +41,9 @@ Requires `langchain-finic[middleware]`.
 ::: langchain_finic.middleware
     options:
       members: [ModelChoice, ModelRouterMiddleware, AutoModeMiddleware, ModelRouterState]
+
+## Custom scoring models
+
+::: langchain_finic.scoring_models
+    options:
+      members: [ScoringInput, ScoringRequest, ScoringResponse, CreateScoreRequest, CreateScoreResponse, CalibrationRequest, CalibrationResponse, ScoreModel, ListScoresResponse, JobStatus, JobFailure]
