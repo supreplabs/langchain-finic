@@ -173,6 +173,8 @@ class ModelRouterMiddleware(_ClassifierMiddleware):
         }
 
     def before_agent(self, state, runtime):
+        if not any(isinstance(message, HumanMessage) for message in state["messages"]):
+            raise ValueError("Model routing requires a human message")
         try:
             request = self._request(state, runtime)
             return self._result(request, self.classifier.invoke(request, _config()))
@@ -183,6 +185,8 @@ class ModelRouterMiddleware(_ClassifierMiddleware):
             return fallback
 
     async def abefore_agent(self, state, runtime):
+        if not any(isinstance(message, HumanMessage) for message in state["messages"]):
+            raise ValueError("Model routing requires a human message")
         try:
             request = self._request(state, runtime)
             return self._result(request, await self.classifier.ainvoke(request, _config()))
@@ -234,7 +238,11 @@ class AutoModeMiddleware(_ClassifierMiddleware):
         self.tool_definitions = {
             tool.name: {
                 "description": tool.description,
-                "parameters": cast(Any, tool.tool_call_schema).model_json_schema()
+                "parameters": (
+                    cast(Any, tool.tool_call_schema).model_json_schema()
+                    if hasattr(tool.tool_call_schema, "model_json_schema")
+                    else cast(Any, tool.tool_call_schema).schema()
+                )
                 if isinstance(tool.tool_call_schema, type)
                 else tool.tool_call_schema,
             }

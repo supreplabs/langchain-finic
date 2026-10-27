@@ -144,3 +144,41 @@ def test_guard_selected_window_does_not_replace_tool_call():
 def test_context_limit_validation(limit):
     with pytest.raises(ValueError):
         AutoModeMiddleware(tools=["protected"], max_context_bytes=limit)
+
+
+def test_v1_and_dictionary_tool_schemas():
+    from pydantic.v1 import BaseModel
+
+    class LegacyArguments(BaseModel):
+        value: str
+
+    def operation(value: str) -> str:
+        return value
+
+    schemas = [
+        LegacyArguments,
+        {"type": "object", "properties": {"value": {"type": "string"}}, "required": ["value"]},
+    ]
+    with FinicClassifier(api_key="test") as classifier:
+        for schema in schemas:
+            tool = StructuredTool.from_function(
+                operation, name="protected", description="Read only", args_schema=schema
+            )
+            guard = AutoModeMiddleware(tools=[tool], classifier=classifier)
+            assert (
+                guard._request(request_for_tool()).data["tool_definition"]["parameters"]["properties"][
+                    "value"
+                ]["type"]
+                == "string"
+            )
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_router_missing_human_still_raises_with_fallback(asynchronous):
+    with FinicClassifier(api_key="test") as classifier:
+        router = ModelRouterMiddleware(choices=choices(), classifier=classifier, fallback="powerful")
+        with pytest.raises(ValueError, match="human message"):
+            if asynchronous:
+                asyncio.run(router.abefore_agent({"messages": []}, None))
+            else:
+                router.before_agent({"messages": []}, None)
