@@ -18,7 +18,7 @@ Prefer these imports when building applications:
 | `langchain_finic` | `ScoreModel`, `ListScoresResponse`, `JobStatus`, `JobFailure` |
 | `langchain_finic` | `Noul`, `Choice`, `MultiChoice`, `Score` |
 | `langchain_finic` | `NoulAnswer`, `ChoiceAnswer`, `MultiChoiceAnswer`, `ScoreAnswer` |
-| `langchain_finic.middleware` | `ModelChoice`, `ModelRouterMiddleware`, `AutoModeMiddleware`, `ModelRouterState` |
+| `langchain_finic.middleware` | `ModelChoice`, `ModelRouterMiddleware`, `AutoModeMiddleware`, `ModelRouterState`, `ContextBuilder` |
 
 Middleware requires the `middleware` extra. `Noul` and `Score` are aliases whose
 underlying schema names appear in the API reference. Public import aliases and
@@ -112,3 +112,13 @@ fixes may shorten that notice, with an advisory explaining the impact.
 Security fixes target the latest supported release as described in the repository's
 [security policy](https://github.com/supreplabs/langchain-finic/blob/main/SECURITY.md).
 There is no promised LTS period or response-time SLA.
+
+## Static typing checks
+
+`make type_check` checks the package and a consumer fixture using `assert_type`
+for middleware hooks, sync/async results, dictionary inputs, configured tools,
+and context-manager types. CI also checks these interfaces against the minimum
+dependency environment. Scorer batch overloads distinguish ordinary results from
+`return_exceptions=True` results; callers must handle the latter's `Exception`
+values. Runtime input validation remains the responsibility of the Pydantic
+contracts and is unchanged by type annotations.

@@ -5,7 +5,6 @@ from typing import Any, cast
 
 from langchain_core.runnables import (
     Runnable,
-    RunnableBinding,
     RunnableConfig,
     RunnableLambda,
 )
@@ -14,6 +13,7 @@ from langchain_core.tools import BaseTool, StructuredTool
 from langsmith.run_helpers import get_current_run_tree
 from pydantic import BaseModel, Field
 
+from langchain_finic._binding import FinicBinding
 from langchain_finic._config import env_option
 from langchain_finic._runnable import FinicRunnable
 from langchain_finic.models import DecisionRequest, DecisionResponse, ModelName
@@ -24,7 +24,9 @@ logger = logging.getLogger(__name__)
 class _DecisionTool(StructuredTool):
     """Normalize the legacy envelope before older LangChain filters parsed fields."""
 
-    def _parse_input(self, tool_input: str | dict[str, Any], tool_call_id: str | None):
+    def _parse_input(
+        self, tool_input: str | dict[str, Any], tool_call_id: str | None
+    ) -> str | dict[str, Any]:
         if isinstance(tool_input, dict) and "state" in tool_input:
             # Run the same conflict/null checks as direct invocation before renaming.
             DecisionRequest.model_validate(tool_input)
@@ -84,7 +86,7 @@ class _DecisionToolConversion:
         )
 
 
-class _DecisionBinding(_DecisionToolConversion, RunnableBinding[DecisionRequest, DecisionResponse]):
+class _DecisionBinding(_DecisionToolConversion, FinicBinding[DecisionRequest, DecisionResponse]):
     """Keep decision tool conversion when configuration/kwargs are bound."""
 
     @classmethod
@@ -208,8 +210,8 @@ class FinicClassifier(_DecisionToolConversion, FinicRunnable[DecisionRequest, De
             model=model,
         )
 
-    def with_config(self, config: RunnableConfig | None = None, **kwargs: Any):
+    def with_config(self, config: RunnableConfig | None = None, **kwargs: Any) -> _DecisionBinding:
         return _DecisionBinding(bound=self, config=cast(RunnableConfig, {**(config or {}), **kwargs}))
 
-    def bind(self, **kwargs: Any):
+    def bind(self, **kwargs: Any) -> _DecisionBinding:
         return _DecisionBinding(bound=self, kwargs=kwargs)
