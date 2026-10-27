@@ -68,8 +68,12 @@ class ScoringInput(Model):
 
     score_id: ScoreId
     data: Record | Rows
-    skip_schema_validation: StrictBool | None = None
-    update_schema: StrictBool | None = None
+    skip_schema_validation: StrictBool | None = Field(
+        default=None, description="Bypass the stored model schema validation for this record."
+    )
+    update_schema: StrictBool | None = Field(
+        default=None, description="Change the remote model schema to this record for future scoring calls."
+    )
 
     @field_validator("data", mode="before")
     @classmethod

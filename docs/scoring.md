@@ -153,3 +153,26 @@ in checkpoints. Resume a failed wait using the same thread and a `None` input;
 do not start the graph over. Use durable checkpoints for process restarts. Even
 with checkpoints, a write accepted remotely before a connection failure may need
 manual reconciliation. The graph intentionally has no automatic write retries.
+
+### Scoring tool capabilities and bindings
+
+`scorer.as_tool()` exposes record scoring only. Schema mutation and validation
+bypass are rejected at runtime as well as omitted from the default argument schema.
+To deliberately grant either capability, construct the tool with
+`allow_schema_update=True` or `allow_schema_bypass=True`. Direct `FinicClient`
+and `FinicScorer.invoke` inputs still support both provider flags. Existing agents
+that used those flags must opt in when upgrading. Custom argument schemas do not
+bypass the capability check.
+
+`with_config(...).as_tool()`, `bind().as_tool()`, and configurable-field tools retain
+the `finic_score` name and JSON output. Explicit names/descriptions are supported.
+Choose capabilities when converting the runnable into a tool; configuring that
+tool afterwards retains its capability policy.
+
+`batch_as_completed` and `abatch_as_completed` use the same default concurrency
+of five as ordinary scorer batches and return each original input index with its
+result. An explicit `max_concurrency` overrides the default. Cancellation cannot
+retract writes already accepted by Finic. For organization-wide request pacing,
+coordinate all workers through a shared rate limiter or queue before invoking
+scoring; a semaphore alone does not enforce requests per second. Keep one attempt
+per write and reconcile ambiguous failures rather than automatically replaying them.
