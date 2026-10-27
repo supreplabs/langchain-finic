@@ -7,7 +7,7 @@ import httpx
 from langchain_core.load.serializable import to_json_not_implemented
 from langchain_core.runnables import RunnableConfig, RunnableLambda, RunnableSerializable
 from langchain_core.runnables.config import ensure_config
-from langchain_core.tools import BaseTool
+from langchain_core.tools import BaseTool, StructuredTool
 from langsmith.run_helpers import get_current_run_tree
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, SecretStr, model_validator
 from pydantic.json_schema import SkipJsonSchema
@@ -17,6 +17,18 @@ from langchain_finic.client import FinicClient
 from langchain_finic.models import DecisionRequest, DecisionResponse, ModelName
 
 logger = logging.getLogger(__name__)
+
+
+class _DecisionTool(StructuredTool):
+    """Normalize the legacy envelope before older LangChain filters parsed fields."""
+
+    def _parse_input(self, tool_input: str | dict[str, Any], tool_call_id: str | None):
+        if isinstance(tool_input, dict) and "state" in tool_input:
+            # Run the same conflict/null checks as direct invocation before renaming.
+            DecisionRequest.model_validate(tool_input)
+            tool_input = dict(tool_input)
+            tool_input["data"] = tool_input.pop("state")
+        return super()._parse_input(tool_input, tool_call_id)
 
 
 class FinicClassifier(RunnableSerializable[DecisionRequest, DecisionResponse]):
@@ -224,12 +236,22 @@ class FinicClassifier(RunnableSerializable[DecisionRequest, DecisionResponse]):
         # Standard conversion preserves callbacks, async support, and schema overrides.
         # JSON output also produces valid ToolMessage content for chat-model agents.
         chain = self | RunnableLambda(lambda result: result.model_dump(mode="json", exclude_none=True))
-        return chain.as_tool(
+        tool = chain.as_tool(
             args_schema=args_schema,
             name=name or "finic_decide",
             arg_types=arg_types,
             description=description or "Evaluate fraud and risk evidence; return typed probabilities.",
         )
+
+        if args_schema is None and arg_types is None and isinstance(tool, StructuredTool):
+            return _DecisionTool(
+                name=tool.name,
+                description=tool.description,
+                args_schema=tool.args_schema,
+                func=tool.func,
+                coroutine=tool.coroutine,
+            )
+        return tool
 
     def close(self) -> None:
         if self.client is None:
