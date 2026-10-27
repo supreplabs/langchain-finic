@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Explain calibration warm-up, question versioning, application deadlines and shared connection ownership; add an offline-tested async routing example.
+
 - Record sanitized daily live-test evidence and add installed-package application validation.
 
 ## 0.1.0a6
