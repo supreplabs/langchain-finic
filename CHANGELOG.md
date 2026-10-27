@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Preserve legacy state updates and configured/bound decision-tool conversion.
+
 - Align decisions with Finic data/context inputs, retaining state as a compatibility alias.
 - Match documented base-rate boundaries and expose structured provider error identifiers.
 
