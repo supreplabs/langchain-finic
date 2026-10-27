@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Accept documented text outcome labels in JSON and CSV without rewriting inputs.
+
 - Add typed sync/async custom scoring, creation, discovery, calibration, and job APIs.
 - Use conservative write retries and explicit bounded job polling.
 - Preserve legacy state updates and configured/bound decision-tool conversion.

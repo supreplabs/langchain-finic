@@ -26,8 +26,9 @@ validation against the stored schema remains Finic's responsibility.
 
 - `create_score(CreateScoreRequest(data=examples, description=...))` starts model
   creation and returns model, job, and request IDs immediately. Supply at least
-  100 labeled examples, with at least 20 of each outcome. Labels are booleans or
-  integer 0/1. Each example needs another field. Finic samples more than 2,000 rows;
+  100 labeled examples, with at least 20 of each outcome. Labels are booleans,
+  integer 0/1, or case-insensitive text true/false/1/0/yes/no in either JSON or CSV.
+  The original label representation is preserved in the request. Each example needs another field. Finic samples more than 2,000 rows;
   the client never silently truncates your data.
 - `list_scores()` returns the newest 500 models and their status/count metadata.
   Finic does not document pagination for this endpoint.
