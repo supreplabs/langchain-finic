@@ -1,6 +1,6 @@
 import asyncio
 import json
-import runpy
+from copy import deepcopy
 from pathlib import Path
 
 import httpx
@@ -11,8 +11,11 @@ from langchain_finic import CreateScoreRequest, FinicClient, FinicError
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def runner():
-    return runpy.run_path(str(ROOT / "scripts/live_lifecycle.py"))
+def runner(optimize=0):
+    path = ROOT / "scripts/live_lifecycle.py"
+    namespace = {"__name__": "lifecycle_test", "__file__": str(path)}
+    exec(compile(path.read_text(), str(path), "exec", optimize=optimize), namespace)
+    return namespace
 
 
 def test_synthetic_examples_meet_provider_minima():
@@ -43,9 +46,12 @@ def test_preserves_previous_evidence(monkeypatch, tmp_path):
     assert output.read_text() == "previous attempt"
 
 
-@pytest.mark.parametrize("failure", [None, "creation", "calibration"])
-def test_lifecycle_sequence_and_evidence(failure):
-    module = runner()
+@pytest.mark.parametrize("optimize", [0, 1])
+@pytest.mark.parametrize(
+    "failure", [None, "creation", "calibration", "listing", "identity", "matching", "score1", "score2"]
+)
+def test_lifecycle_sequence_and_evidence(failure, optimize, monkeypatch, tmp_path):
+    module = runner(optimize)
     evidence = []
     calls = []
     ids = []
@@ -71,7 +77,7 @@ def test_lifecycle_sequence_and_evidence(failure):
                     "scores": [
                         {
                             "model_id": "scm_new",
-                            "status": "ready",
+                            "status": "training" if failure == "listing" else "ready",
                             "criteria": "synthetic",
                             "created_at": "2026-10-27",
                             "calibrated_at": None,
@@ -86,8 +92,22 @@ def test_lifecycle_sequence_and_evidence(failure):
         if request.url.path == "/v1/score":
             assert payload["model_id"] == "scm_new"
             ids.append(payload["score_id"])
+            if failure == "score" + str(len(ids)):
+                persisted = json.loads(output.read_text())
+                assert persisted["score_attempts"][-1] == {
+                    "model_id": "scm_new",
+                    "score_id": ids[-1],
+                    "status": "pending",
+                }
+                raise httpx.ReadTimeout("private provider data", request=request)
             return httpx.Response(
-                200, json={"model_id": "scm_new", "score_id": ids[-1], "score": 50, "request_id": "req_score"}
+                200,
+                json={
+                    "model_id": "scm_new",
+                    "score_id": "wrong" if failure == "identity" else ids[-1],
+                    "score": 50,
+                    "request_id": "req_score",
+                },
             )
         if request.url.path == "/v1/calibrate":
             assert payload["model_id"] == "scm_new"
@@ -96,17 +116,49 @@ def test_lifecycle_sequence_and_evidence(failure):
                 202,
                 json={
                     "job_id": "job_calibration",
-                    "matched": 2,
+                    "matched": 1 if failure == "matching" else 2,
                     "unmatched": 0,
                     "request_id": "req_calibration",
                 },
             )
         raise AssertionError(request.url)
 
+    output = tmp_path / "evidence.json"
+    actual_async_client = httpx.AsyncClient
+
+    def client_factory(**kwargs):
+        return actual_async_client(transport=httpx.MockTransport(handle), **kwargs)
+
     async def run():
         async with FinicClient("test", async_transport=httpx.MockTransport(handle)) as client:
-            return await module["exercise_lifecycle"](client, lambda data: evidence.append(dict(data)))
+            return await module["exercise_lifecycle"](client, lambda data: evidence.append(deepcopy(data)))
 
+    if failure in ("score1", "score2"):
+        monkeypatch.setenv("FINIC_API_KEY", "test-key")
+        monkeypatch.setenv("FINIC_LIFECYCLE_TESTS", "1")
+        monkeypatch.setattr(module["httpx"], "AsyncClient", client_factory)
+        with pytest.raises(FinicError):
+            asyncio.run(module["run_live"](output))
+        persisted = json.loads(output.read_text())
+        assert persisted["status"] == "failed"
+        assert persisted["request_count"] == len(calls)
+        assert len(ids) == int(failure[-1])
+        assert len(persisted.get("scores", [])) == len(ids) - 1
+        assert persisted["score_attempts"][-1]["status"] == "pending"
+        assert all(item["status"] == "validated" for item in persisted["score_attempts"][:-1])
+        assert ("POST", "/v1/calibrate") not in calls
+        assert "test-key" not in output.read_text() and "private" not in output.read_text()
+        return
+    if failure in ("listing", "identity", "matching"):
+        with pytest.raises(
+            RuntimeError,
+            match={"listing": "not listed as ready", "identity": "identity", "matching": "match both"}[
+                failure
+            ],
+        ):
+            asyncio.run(run())
+        assert evidence[-1]["status"] != "passed"
+        return
     if failure:
         with pytest.raises(FinicError, match="job failed"):
             asyncio.run(run())
@@ -115,6 +167,8 @@ def test_lifecycle_sequence_and_evidence(failure):
         assert result["status"] == "passed"
         assert len(ids) == len(set(ids)) == 2
         assert len(calls) == 7
+        assert ("GET", "/v1/jobs/job_calibration") in calls
+        assert [item["status"] for item in result["score_attempts"]] == ["validated", "validated"]
     assert evidence[0]["model_id"] == "scm_new"
     assert evidence[0]["creation_job_id"] == "job_creation"
     assert calls.count(("POST", "/v1/scores")) == 1

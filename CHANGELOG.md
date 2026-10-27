@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Keep lifecycle validation active under optimized Python and persist pending score IDs before writes.
+
 - Add a six-endpoint coverage matrix and separately opted-in synthetic lifecycle validation.
 
 - Add FinicScorer, selected lifecycle tools, and checkpointed composition examples.

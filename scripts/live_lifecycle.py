@@ -30,7 +30,7 @@ def synthetic_examples() -> list[dict]:
 
 
 async def exercise_lifecycle(client: FinicClient, record: Callable[[dict], None]) -> dict:
-    """Exercise only the model created here; report durable IDs before every wait."""
+    """Exercise only the model created here; persist job and score identities before waits and writes."""
     evidence: dict = {"started_at": datetime.now(UTC).isoformat(), "status": "running"}
     created = await client.acreate_score(
         CreateScoreRequest(
@@ -46,15 +46,22 @@ async def exercise_lifecycle(client: FinicClient, record: Callable[[dict], None]
     )
     record(evidence)
     job = await client.await_job(created.job_id, timeout=900)
-    assert job.succeeded
+    if not job.succeeded:
+        raise RuntimeError("Creation job did not succeed")
     evidence["creation_complete"] = True
     record(evidence)
     listing = await client.alist_scores()
-    assert any(item.model_id == created.model_id and item.status == "ready" for item in listing.scores)
+    if not any(item.model_id == created.model_id and item.status == "ready" for item in listing.scores):
+        raise RuntimeError("Created model is not listed as ready")
     scores = []
     outcomes = []
+    evidence["score_attempts"] = []
     for label in (False, True):
         score_id = "integration_" + uuid4().hex
+        attempt = {"model_id": created.model_id, "score_id": score_id, "status": "pending"}
+        evidence["score_attempts"].append(attempt)
+        # A timeout may follow an accepted write. Keep the same ID for reconciliation.
+        record(evidence)
         result = await client.ascore(
             ScoringRequest(
                 model_id=created.model_id,
@@ -66,8 +73,13 @@ async def exercise_lifecycle(client: FinicClient, record: Callable[[dict], None]
                 },
             )
         )
-        assert result.score_id == score_id and result.model_id == created.model_id
-        assert 0 <= result.score <= 1000 and result.request_id
+        attempt.update(status="received", response=result.model_dump())
+        record(evidence)
+        if result.score_id != score_id or result.model_id != created.model_id:
+            raise RuntimeError("Score response identity does not match the request")
+        if not (0 <= result.score <= 1000 and result.request_id):
+            raise RuntimeError("Score response is missing a valid score or request ID")
+        attempt["status"] = "validated"
         scores.append(result.model_dump())
         outcomes.append({"score_id": score_id, "is_bad": label})
         evidence["scores"] = scores
@@ -81,8 +93,11 @@ async def exercise_lifecycle(client: FinicClient, record: Callable[[dict], None]
         unmatched=calibration.unmatched,
     )
     record(evidence)
-    assert calibration.matched == 2 and calibration.unmatched == 0
-    assert (await client.await_job(calibration.job_id, timeout=900)).succeeded
+    if calibration.matched != 2 or calibration.unmatched != 0:
+        raise RuntimeError("Calibration did not match both score outcomes")
+    calibration_job = await client.await_job(calibration.job_id, timeout=900)
+    if not calibration_job.succeeded:
+        raise RuntimeError("Calibration job did not succeed")
     evidence.update(status="passed", finished_at=datetime.now(UTC).isoformat())
     record(evidence)
     return evidence
