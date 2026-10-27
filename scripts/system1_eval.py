@@ -131,7 +131,7 @@ def freeze_reference(path: Path | None, split: str, config: EvaluationConfig, co
         or report.get("corpus_sha256") != corpus_hash
         or report.get("implementation_sha256") != implementation_hash()
         or report.get("versions") != versions()
-        or report.get("summary", {}).get("failed_requests") != 0
+        or report.get("summary", {}).get("failed_assessments") != 0
     ):
         raise ValueError("Development reference must be complete, successful, and match config/corpus")
     return hashlib.sha256(raw).hexdigest()
@@ -198,8 +198,8 @@ def summarize(records: list[dict], config: EvaluationConfig) -> dict:
     tokens = sum(r.get("input_tokens", 0) for r in valid)
     return {
         "evaluated_cases": len(records),
-        "successful_requests": len(valid),
-        "failed_requests": len(records) - len(valid),
+        "successful_assessments": len(valid),
+        "failed_assessments": len(records) - len(valid),
         "routing": {
             "accuracy_including_fallback": fraction(
                 sum(r["predicted"] == r["expected"] for r in routing), len(routing)
@@ -346,12 +346,14 @@ def run_cases(
     *,
     clock=time.monotonic,
     sleep=time.sleep,
+    attempts=lambda: 0,
 ) -> list[dict]:
     records = []
     next_start = clock()
     for case in cases:
         sleep(max(0, next_start - clock()))
         started = clock()
+        before_attempts = attempts()
         next_start = started + 0.25
         try:
             result = evaluate(case)
@@ -373,6 +375,7 @@ def run_cases(
                 "expected": case.expected,
                 "latency_seconds": max(0, clock() - started),
                 **result,
+                "http_attempts": attempts() - before_attempts,
             }
         )
         checkpoint(records)
@@ -446,13 +449,13 @@ def main(argv=None) -> int:
             httpx.Client(event_hooks={"request": [count_request]}) as client,
             RecordingClassifier(model=config.model, max_attempts=1, http_client=client) as classifier,
         ):
-
-            def evaluate(case):
-                before = report["http_attempts"]
-                result = evaluate_case(case, classifier, config)
-                return {**result, "http_attempts": report["http_attempts"] - before}
-
-            run_cases(selected, config, evaluate, checkpoint)
+            run_cases(
+                selected,
+                config,
+                lambda case: evaluate_case(case, classifier, config),
+                checkpoint,
+                attempts=lambda: report["http_attempts"],
+            )
         report["status"] = "complete"
     except BaseException:
         report["status"] = "interrupted"
@@ -461,7 +464,7 @@ def main(argv=None) -> int:
         report["finished_at"] = datetime.now(UTC).isoformat()
         checkpoint(report["records"])
     print(json.dumps({"output": str(args.output), "summary": report["summary"]}, indent=2))
-    return 1 if report["summary"]["failed_requests"] else 0
+    return 1 if report["summary"]["failed_assessments"] else 0
 
 
 if __name__ == "__main__":

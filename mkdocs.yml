@@ -10,6 +10,7 @@ nav:
   - Compatibility and support: compatibility.md
   - Custom scoring: scoring.md
   - Calibration and latency budgets: deployment.md
+  - System 1 evaluation: evaluation.md
   - API reference: api.md
 plugins:
   - search

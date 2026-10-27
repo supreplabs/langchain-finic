@@ -48,7 +48,7 @@ def test_holdout_requires_frozen_successful_development(evaluation, tmp_path):
         "corpus_sha256": "hash",
         "implementation_sha256": evaluation["implementation_hash"](),
         "versions": evaluation["versions"](),
-        "summary": {"failed_requests": 0},
+        "summary": {"failed_assessments": 0},
     }
     path = tmp_path / "development.json"
     path.write_text(json.dumps(report))
@@ -59,7 +59,7 @@ def test_holdout_requires_frozen_successful_development(evaluation, tmp_path):
         ("implementation_sha256", "other"),
         ("versions", {}),
         ("status", "running"),
-        ("summary", {"failed_requests": 1}),
+        ("summary", {"failed_assessments": 1}),
         ("split", "heldout"),
     ]:
         path.write_text(json.dumps({**report, key: bad}))
@@ -90,7 +90,7 @@ def test_metrics_include_failures_and_reference_baseline(evaluation):
         record("screen", "allow", "allow", 0.2),
     ]
     summary = evaluation["summarize"](rows, evaluation["EvaluationConfig"]())
-    assert summary["evaluated_cases"] == 6 and summary["failed_requests"] == 2
+    assert summary["evaluated_cases"] == 6 and summary["failed_assessments"] == 2
     route = summary["routing"]
     guard = summary["screening"]
     assert route["accuracy_including_fallback"]["rate"] == 0.5
@@ -213,8 +213,8 @@ def test_cli_counts_real_transport_attempts_and_refuses_overwrite(evaluation, mo
     monkeypatch.setitem(
         evaluation["main"].__globals__,
         "run_cases",
-        lambda cases, config, execute, checkpoint: original_run(
-            cases, config, execute, checkpoint, sleep=lambda _: None
+        lambda cases, config, execute, checkpoint, **kwargs: original_run(
+            cases, config, execute, checkpoint, sleep=lambda _: None, **kwargs
         ),
     )
     path = tmp_path / "development.json"
@@ -222,7 +222,7 @@ def test_cli_counts_real_transport_attempts_and_refuses_overwrite(evaluation, mo
     report = json.loads(path.read_text())
     assert report["http_attempts"] == 12
     assert sum(r["http_attempts"] for r in report["records"]) == 12
-    assert report["status"] == "complete" and report["summary"]["failed_requests"] == 0
+    assert report["status"] == "complete" and report["summary"]["failed_assessments"] == 0
     assert all(r["calibrated"] for r in report["records"])
     assert "Authorization" not in path.read_text()
     with pytest.raises(FileExistsError):
@@ -267,3 +267,25 @@ def test_reference_baseline_tracks_corpus(evaluation):
     assert all(
         split["fixed_powerful_routing_accuracy"]["rate"] == 0.5 for split in baseline["results"].values()
     )
+
+
+def test_attempt_count_survives_unexpected_post_request_failure(evaluation):
+    cases, _ = evaluation["load_corpus"]()
+    attempts = [0]
+    snapshots = []
+
+    def execute(case):
+        attempts[0] += 1
+        raise RuntimeError("unexpected local processing failure after an HTTP attempt")
+
+    results = evaluation["run_cases"](
+        cases[:1],
+        evaluation["EvaluationConfig"](),
+        execute,
+        snapshots.append,
+        sleep=lambda _: None,
+        attempts=lambda: attempts[0],
+    )
+    assert results[0]["http_attempts"] == 1
+    assert results[0]["status"] == "failed"
+    assert snapshots[-1][0]["http_attempts"] == 1
