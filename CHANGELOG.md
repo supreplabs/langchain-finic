@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add a versioned synthetic System 1 evaluation corpus and bounded opt-in runner,
+  with frozen held-out configuration, failure-inclusive metrics and explicit limitations.
 - Type public middleware and Runnable interfaces, including dictionary inputs and exception-bearing batch results; check consumer type assertions on current and minimum dependencies.
 
 - Include registered tool semantics in screening and add bounded context-builder hooks for routing and screening.

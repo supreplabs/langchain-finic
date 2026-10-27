@@ -192,3 +192,11 @@ each. Evidence includes versions, request counts, per-application outcomes, and
 exception types without raw error messages or model responses. Failed attempts
 remain available for investigation. This is maintainer validation of representative
 consumer flows, not independent-user adoption or predictive-accuracy evaluation.
+
+## System 1 quality evaluation
+
+The versioned corpus and bounded paid runner are described in
+[the evaluation guide](../docs/evaluation.md). They exercise middleware decisions
+against reference labels, separately from integration contract tests. Normal CI
+only runs offline metric, budget, split-freezing and mock-HTTP tests; no evaluation
+request is authorized by the default test target.
