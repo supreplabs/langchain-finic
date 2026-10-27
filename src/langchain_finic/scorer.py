@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from collections.abc import AsyncIterator, Iterator, Sequence
-from typing import Any, Literal, cast, overload
+from typing import Any, Literal, Self, cast, overload
 
 from langchain_core.runnables import (
     Runnable,
@@ -30,8 +30,10 @@ class _ScoringTool(StructuredTool):
 
     disabled_flags: frozenset[str] = Field(exclude=True)
 
-    def _parse_input(self, tool_input: str | dict[str, Any], tool_call_id: str | None):
-        def check(value, *, parsed=False):
+    def _parse_input(
+        self, tool_input: str | dict[str, Any], tool_call_id: str | None
+    ) -> str | dict[str, Any]:
+        def check(value: str | dict[str, Any], *, parsed: bool = False) -> None:
             if isinstance(value, dict) and any(
                 key in value and (not parsed or value[key] is not None) for key in self.disabled_flags
             ):
@@ -98,6 +100,22 @@ class _ScorerToolConversion:
 
 
 class _ScorerBinding(_ScorerToolConversion, RunnableBinding[ScoringInput, ScoringResponse]):
+    def with_config(self, config: RunnableConfig | None = None, **kwargs: Any) -> Self:
+        return cast(Self, super().with_config(config, **kwargs))
+
+    def bind(self, **kwargs: Any) -> Self:
+        return cast(Self, super().bind(**kwargs))
+
+    def invoke(
+        self, input: ScoringInput | dict[str, Any], config: RunnableConfig | None = None, **kwargs: Any
+    ) -> ScoringResponse:
+        return super().invoke(cast(ScoringInput, input), config, **kwargs)
+
+    async def ainvoke(
+        self, input: ScoringInput | dict[str, Any], config: RunnableConfig | None = None, **kwargs: Any
+    ) -> ScoringResponse:
+        return await super().ainvoke(cast(ScoringInput, input), config, **kwargs)
+
     @classmethod
     def get_lc_namespace(cls) -> list[str]:
         return ["langchain_finic", "scorer"]
@@ -191,27 +209,115 @@ class FinicScorer(_ScorerToolConversion, FinicRunnable[ScoringInput, ScoringResp
         return await self._acall_with_config(self._ainvoke, self._input(input), self._trace_config(config))
 
     @staticmethod
-    def _batch_configs(config, count):
+    def _batch_configs(
+        config: RunnableConfig | Sequence[RunnableConfig] | None, count: int
+    ) -> list[RunnableConfig]:
         configs = get_config_list(config, count)
         for item in configs:
             if item.get("max_concurrency") is None:
                 item["max_concurrency"] = 5
         return configs
 
-    def batch(self, inputs, config=None, *, return_exceptions=False, **kwargs):
+    # Upstream batch omits Exception from its return type even when requested.
+    @overload  # type: ignore[override]
+    def batch(
+        self,
+        inputs: Sequence[ScoringInput | dict[str, Any]],
+        config: RunnableConfig | Sequence[RunnableConfig] | None = None,
+        *,
+        return_exceptions: Literal[False] = False,
+        **kwargs: Any,
+    ) -> list[ScoringResponse]: ...
+
+    @overload
+    def batch(
+        self,
+        inputs: Sequence[ScoringInput | dict[str, Any]],
+        config: RunnableConfig | Sequence[RunnableConfig] | None = None,
+        *,
+        return_exceptions: Literal[True],
+        **kwargs: Any,
+    ) -> list[ScoringResponse | Exception]: ...
+
+    @overload
+    def batch(
+        self,
+        inputs: Sequence[ScoringInput | dict[str, Any]],
+        config: RunnableConfig | Sequence[RunnableConfig] | None = None,
+        *,
+        return_exceptions: bool,
+        **kwargs: Any,
+    ) -> list[ScoringResponse | Exception]: ...
+
+    def batch(
+        self,
+        inputs: Sequence[ScoringInput | dict[str, Any]],
+        config: RunnableConfig | Sequence[RunnableConfig] | None = None,
+        *,
+        return_exceptions: bool = False,
+        **kwargs: Any,
+    ) -> list[ScoringResponse] | list[ScoringResponse | Exception]:
+        # The Runnable's generic parameter describes its published Pydantic schema;
+        # invoke/ainvoke also validate dictionary inputs at runtime.
         return super().batch(
-            inputs, self._batch_configs(config, len(inputs)), return_exceptions=return_exceptions, **kwargs
+            cast(list[ScoringInput], inputs),
+            self._batch_configs(config, len(inputs)),
+            return_exceptions=return_exceptions,
+            **kwargs,
         )
 
-    async def abatch(self, inputs, config=None, *, return_exceptions=False, **kwargs):
+    # Upstream abatch has the same exception-result typing mismatch.
+    @overload  # type: ignore[override]
+    async def abatch(
+        self,
+        inputs: Sequence[ScoringInput | dict[str, Any]],
+        config: RunnableConfig | Sequence[RunnableConfig] | None = None,
+        *,
+        return_exceptions: Literal[False] = False,
+        **kwargs: Any,
+    ) -> list[ScoringResponse]: ...
+
+    @overload
+    async def abatch(
+        self,
+        inputs: Sequence[ScoringInput | dict[str, Any]],
+        config: RunnableConfig | Sequence[RunnableConfig] | None = None,
+        *,
+        return_exceptions: Literal[True],
+        **kwargs: Any,
+    ) -> list[ScoringResponse | Exception]: ...
+
+    @overload
+    async def abatch(
+        self,
+        inputs: Sequence[ScoringInput | dict[str, Any]],
+        config: RunnableConfig | Sequence[RunnableConfig] | None = None,
+        *,
+        return_exceptions: bool,
+        **kwargs: Any,
+    ) -> list[ScoringResponse | Exception]: ...
+
+    async def abatch(
+        self,
+        inputs: Sequence[ScoringInput | dict[str, Any]],
+        config: RunnableConfig | Sequence[RunnableConfig] | None = None,
+        *,
+        return_exceptions: bool = False,
+        **kwargs: Any,
+    ) -> list[ScoringResponse] | list[ScoringResponse | Exception]:
+        # The Runnable's generic parameter describes its published Pydantic schema;
+        # invoke/ainvoke also validate dictionary inputs at runtime.
         return await super().abatch(
-            inputs, self._batch_configs(config, len(inputs)), return_exceptions=return_exceptions, **kwargs
+            cast(list[ScoringInput], inputs),
+            self._batch_configs(config, len(inputs)),
+            return_exceptions=return_exceptions,
+            **kwargs,
         )
 
     @overload
     def batch_as_completed(
         self,
-        inputs: Sequence[ScoringInput],
+        inputs: Sequence[ScoringInput | dict[str, Any]],
         config: RunnableConfig | Sequence[RunnableConfig] | None = None,
         *,
         return_exceptions: Literal[False] = False,
@@ -221,24 +327,42 @@ class FinicScorer(_ScorerToolConversion, FinicRunnable[ScoringInput, ScoringResp
     @overload
     def batch_as_completed(
         self,
-        inputs: Sequence[ScoringInput],
+        inputs: Sequence[ScoringInput | dict[str, Any]],
         config: RunnableConfig | Sequence[RunnableConfig] | None = None,
         *,
         return_exceptions: Literal[True],
         **kwargs: Any,
     ) -> Iterator[tuple[int, ScoringResponse | Exception]]: ...
 
+    @overload
     def batch_as_completed(
-        self, inputs: Sequence[ScoringInput], config=None, *, return_exceptions=False, **kwargs: Any
+        self,
+        inputs: Sequence[ScoringInput | dict[str, Any]],
+        config: RunnableConfig | Sequence[RunnableConfig] | None = None,
+        *,
+        return_exceptions: bool,
+        **kwargs: Any,
+    ) -> Iterator[tuple[int, ScoringResponse | Exception]]: ...
+
+    def batch_as_completed(
+        self,
+        inputs: Sequence[ScoringInput | dict[str, Any]],
+        config: RunnableConfig | Sequence[RunnableConfig] | None = None,
+        *,
+        return_exceptions: bool = False,
+        **kwargs: Any,
     ) -> Iterator[tuple[int, ScoringResponse | Exception]]:
         yield from super().batch_as_completed(
-            inputs, self._batch_configs(config, len(inputs)), return_exceptions=return_exceptions, **kwargs
+            cast(Sequence[ScoringInput], inputs),
+            self._batch_configs(config, len(inputs)),
+            return_exceptions=cast(Any, return_exceptions),
+            **kwargs,
         )
 
     @overload
     def abatch_as_completed(
         self,
-        inputs: Sequence[ScoringInput],
+        inputs: Sequence[ScoringInput | dict[str, Any]],
         config: RunnableConfig | Sequence[RunnableConfig] | None = None,
         *,
         return_exceptions: Literal[False] = False,
@@ -248,20 +372,35 @@ class FinicScorer(_ScorerToolConversion, FinicRunnable[ScoringInput, ScoringResp
     @overload
     def abatch_as_completed(
         self,
-        inputs: Sequence[ScoringInput],
+        inputs: Sequence[ScoringInput | dict[str, Any]],
         config: RunnableConfig | Sequence[RunnableConfig] | None = None,
         *,
         return_exceptions: Literal[True],
         **kwargs: Any,
     ) -> AsyncIterator[tuple[int, ScoringResponse | Exception]]: ...
 
+    @overload
+    def abatch_as_completed(
+        self,
+        inputs: Sequence[ScoringInput | dict[str, Any]],
+        config: RunnableConfig | Sequence[RunnableConfig] | None = None,
+        *,
+        return_exceptions: bool,
+        **kwargs: Any,
+    ) -> AsyncIterator[tuple[int, ScoringResponse | Exception]]: ...
+
     async def abatch_as_completed(
-        self, inputs: Sequence[ScoringInput], config=None, *, return_exceptions=False, **kwargs: Any
+        self,
+        inputs: Sequence[ScoringInput | dict[str, Any]],
+        config: RunnableConfig | Sequence[RunnableConfig] | None = None,
+        *,
+        return_exceptions: bool = False,
+        **kwargs: Any,
     ) -> AsyncIterator[tuple[int, ScoringResponse | Exception]]:
         configs = self._batch_configs(config, len(inputs))
         if not inputs:
             return
-        limit = configs[0]["max_concurrency"]
+        limit = cast(int, configs[0]["max_concurrency"])  # _batch_configs fills None with five.
         if limit < 1:
             raise ValueError("max_concurrency must be positive")
         semaphore = asyncio.Semaphore(limit)

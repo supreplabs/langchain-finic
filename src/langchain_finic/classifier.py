@@ -1,7 +1,7 @@
 """Native LangChain decision Runnable for the Grayson probability API."""
 
 import logging
-from typing import Any, cast
+from typing import Any, Self, cast
 
 from langchain_core.runnables import (
     Runnable,
@@ -24,7 +24,9 @@ logger = logging.getLogger(__name__)
 class _DecisionTool(StructuredTool):
     """Normalize the legacy envelope before older LangChain filters parsed fields."""
 
-    def _parse_input(self, tool_input: str | dict[str, Any], tool_call_id: str | None):
+    def _parse_input(
+        self, tool_input: str | dict[str, Any], tool_call_id: str | None
+    ) -> str | dict[str, Any]:
         if isinstance(tool_input, dict) and "state" in tool_input:
             # Run the same conflict/null checks as direct invocation before renaming.
             DecisionRequest.model_validate(tool_input)
@@ -86,6 +88,22 @@ class _DecisionToolConversion:
 
 class _DecisionBinding(_DecisionToolConversion, RunnableBinding[DecisionRequest, DecisionResponse]):
     """Keep decision tool conversion when configuration/kwargs are bound."""
+
+    def with_config(self, config: RunnableConfig | None = None, **kwargs: Any) -> Self:
+        return cast(Self, super().with_config(config, **kwargs))
+
+    def bind(self, **kwargs: Any) -> Self:
+        return cast(Self, super().bind(**kwargs))
+
+    def invoke(
+        self, input: DecisionRequest | dict[str, Any], config: RunnableConfig | None = None, **kwargs: Any
+    ) -> DecisionResponse:
+        return super().invoke(cast(DecisionRequest, input), config, **kwargs)
+
+    async def ainvoke(
+        self, input: DecisionRequest | dict[str, Any], config: RunnableConfig | None = None, **kwargs: Any
+    ) -> DecisionResponse:
+        return await super().ainvoke(cast(DecisionRequest, input), config, **kwargs)
 
     @classmethod
     def get_lc_namespace(cls) -> list[str]:
@@ -208,8 +226,8 @@ class FinicClassifier(_DecisionToolConversion, FinicRunnable[DecisionRequest, De
             model=model,
         )
 
-    def with_config(self, config: RunnableConfig | None = None, **kwargs: Any):
+    def with_config(self, config: RunnableConfig | None = None, **kwargs: Any) -> _DecisionBinding:
         return _DecisionBinding(bound=self, config=cast(RunnableConfig, {**(config or {}), **kwargs}))
 
-    def bind(self, **kwargs: Any):
+    def bind(self, **kwargs: Any) -> _DecisionBinding:
         return _DecisionBinding(bound=self, kwargs=kwargs)
