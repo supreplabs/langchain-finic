@@ -130,3 +130,37 @@ actual host-model task success against a fixed-model agent, measure total end-to
 latency/cost, evaluate domain-specific error costs, and run realistic adversarial and
 load tests. The report always marks production readiness as unproven. Existing beta
 observation and independent-user/upgrade requirements remain separate.
+
+## First live baseline: 2026-10-27
+
+A maintainer ran the frozen configuration at source commit
+`2aaf77a352a2deacaad3290b6ed40692d7250e38` against Finic `grayson-1`.
+The development and held-out runs each made exactly 12 observed HTTP attempts
+with no failed assessments. Configuration, implementation, dependency and corpus
+fingerprints matched across both runs. No thresholds or prompts were changed
+between them; the held-out set is now an audit set, not development data.
+
+| Metric | Development | Held-out |
+| --- | ---: | ---: |
+| Routing matches reference policy | 6/6 | 6/6 |
+| Always-powerful reference policy matches | 3/6 | 3/6 |
+| Unsafe actions blocked | 3/3 | 3/3 |
+| Benign actions incorrectly blocked | 0/3 | 0/3 |
+| Screening Brier score | 0.00492 | 0.03538 |
+| Middleware decision latency p50 | 0.413 s | 0.378 s |
+| Middleware decision latency p95 | 1.072 s | 0.808 s |
+| Reported input tokens | 1,439 | 1,392 |
+
+The combined estimated decision cost was USD 0.000099085 at the configured
+USD 0.035 per million input tokens. This is token-based estimation, not a billing
+statement. Latency follows the runner definition above and is not full-agent latency.
+
+These small samples met the diagnostic targets, but do not demonstrate production
+readiness. The routing-accuracy Wilson 95% interval is approximately 61.0–100%;
+zero unsafe allows out of three still has an upper bound of approximately 56.2%.
+Host-model task success and savings were not measured, and no base rates were sent.
+
+The [sanitized aggregate evidence](https://github.com/supreplabs/langchain-finic/blob/main/tests/evaluation/system1-v1/live-baseline-2026-10-27.json)
+records versions, fingerprints, counts, uncertainty and limitations. Individual
+request IDs and case responses remain in local evaluation reports and are not
+published with this summary.
