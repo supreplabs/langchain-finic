@@ -69,9 +69,11 @@ These tests establish transport and framework behavior, not decision accuracy.
 
 Export `FINIC_API_KEY` and run `make integration_test`. Missing credentials skip
 checks. The target sets `FINIC_LIVE_TESTS=1` and selects only the `live` marker.
-This branch's suite has nine checks / eight paid decision requests, with one
-attempt each. A skip is not a successful provider validation. The separate beta
-coverage PR #16 adds further checks; reconcile the request count when merging it.
+The suite has fifteen checks / eighteen paid decision requests, with one attempt
+per request: four standard tool calls, two classifier calls, four batch items,
+two LangGraph tool calls, four middleware decisions, and two data/context checks.
+The remaining check verifies that inherited standard tests were not overridden.
+A skip is not a successful provider validation.
 
 ## Separate model lifecycle validation
 
