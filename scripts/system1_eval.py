@@ -165,10 +165,12 @@ def percentile(values: list[float], percent: float) -> float | None:
     return ordered[max(0, math.ceil(percent * len(ordered)) - 1)]
 
 
-def summarize(records: list[dict], config: EvaluationConfig) -> dict:
+def summarize(
+    records: list[dict], config: EvaluationConfig, *, run_status: str = "running", http_attempts: int = 0
+) -> dict:
     valid = [record for record in records if record["status"] == "ok"]
-    routing = [record for record in records if record["task"] == "route"]
-    screening = [record for record in records if record["task"] == "screen"]
+    routing = [r for r in records if r["task"] == "route" and r["status"] != "interrupted"]
+    screening = [r for r in records if r["task"] == "screen" and r["status"] != "interrupted"]
     valid_screening = [record for record in screening if record["status"] == "ok"]
     tp = sum(r["predicted"] == "block" and r["expected"] == "block" for r in screening)
     fp = sum(r["predicted"] == "block" and r["expected"] == "allow" for r in screening)
@@ -207,7 +209,10 @@ def summarize(records: list[dict], config: EvaluationConfig) -> dict:
             "fixed_powerful_accuracy": fraction(
                 sum(r["expected"] == "powerful" for r in routing), len(routing)
             ),
-            "escalation_or_fallback": fraction(sum(r["fallback"] for r in routing), len(routing)),
+            "fallback_rate": fraction(sum(r["fallback"] for r in routing), len(routing)),
+            "powerful_selection_rate": fraction(
+                sum(r["predicted"] == "powerful" for r in routing), len(routing)
+            ),
             "underprovisioned": sum(
                 r["predicted"] == "fast" and r["expected"] == "powerful" for r in routing
             ),
@@ -238,7 +243,12 @@ def summarize(records: list[dict], config: EvaluationConfig) -> dict:
         },
         "reported_input_tokens": tokens,
         "estimated_known_decision_cost_usd": tokens * config.input_usd_per_million / 1_000_000,
-        "cost_complete": len(valid) == len(records),
+        "unknown_usage_attempts": max(0, http_attempts - sum(r.get("http_attempts", 0) for r in valid)),
+        "cost_complete": (
+            run_status == "complete"
+            and len(valid) == len(records)
+            and sum(r.get("http_attempts", 0) for r in valid) == http_attempts
+        ),
         "production_readiness_demonstrated": False,
     }
 
@@ -345,24 +355,23 @@ def run_cases(
     checkpoint: Callable[[list[dict]], None],
     *,
     clock=time.monotonic,
-    sleep=time.sleep,
     attempts=lambda: 0,
 ) -> list[dict]:
     records = []
-    next_start = clock()
     for case in cases:
-        sleep(max(0, next_start - clock()))
         started = clock()
         before_attempts = attempts()
-        next_start = started + 0.25
+        interruption = None
         try:
             result = evaluate(case)
-        except Exception as error:
+        except BaseException as error:
+            interrupted = not isinstance(error, Exception)
+            interruption = error if interrupted else None
             result = {
-                "status": "failed",
+                "status": "interrupted" if interrupted else "failed",
                 "error_type": type(error).__name__,
-                "predicted": "powerful" if case.task == "route" else "block",
-                "fallback": True,
+                "predicted": None if interrupted else ("powerful" if case.task == "route" else "block"),
+                "fallback": not interrupted,
                 "probability": None,
                 "input_tokens": 0,
                 "request_id": None,
@@ -379,7 +388,22 @@ def run_cases(
             }
         )
         checkpoint(records)
+        if interruption is not None:
+            raise interruption
     return records
+
+
+class RequestPacer:
+    """Space actual request-hook exits, after construction and checkpoint writes."""
+
+    def __init__(self, clock=time.monotonic, sleep=time.sleep):
+        self.clock = clock
+        self.sleep = sleep
+        self.next_start = 0.0
+
+    def __call__(self):
+        self.sleep(max(0.0, self.next_start - self.clock()))
+        self.next_start = self.clock() + 0.25
 
 
 def main(argv=None) -> int:
@@ -433,16 +457,21 @@ def main(argv=None) -> int:
 
     def checkpoint(records):
         report["records"] = records
-        report["summary"] = summarize(records, config)
+        report["summary"] = summarize(
+            records, config, run_status=report["status"], http_attempts=report["http_attempts"]
+        )
         temporary = args.output.with_suffix(args.output.suffix + ".tmp")
         temporary.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
         temporary.replace(args.output)
+
+    pace_request = RequestPacer()
 
     def count_request(request):
         if request.url.host != "api.finic.ai" or report["http_attempts"] >= args.max_requests:
             raise RuntimeError("Unexpected request or exhausted HTTP budget")
         report["http_attempts"] += 1
         checkpoint(report["records"])
+        pace_request()
 
     try:
         with (

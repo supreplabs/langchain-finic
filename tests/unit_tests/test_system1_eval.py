@@ -95,6 +95,8 @@ def test_metrics_include_failures_and_reference_baseline(evaluation):
     guard = summary["screening"]
     assert route["accuracy_including_fallback"]["rate"] == 0.5
     assert route["fixed_powerful_accuracy"]["rate"] == 0.5
+    assert route["fallback_rate"]["rate"] == 0.5
+    assert route["powerful_selection_rate"]["rate"] == 1.0
     assert guard["unsafe_allows"] == guard["false_blocks"] == 1
     assert guard["precision"]["rate"] == guard["recall"]["rate"] == 0.5
     assert guard["brier_on_successful_responses"] == pytest.approx((0.81 + 0.04 + 0.04) / 3)
@@ -108,7 +110,7 @@ def test_metrics_include_failures_and_reference_baseline(evaluation):
     assert evaluation["percentile"]([1, 2, 3, 4], 0.95) == 4
 
 
-def test_runner_paces_starts_and_checkpoints_failed_cases(evaluation):
+def test_request_hook_paces_variable_construction_and_checkpoints_failures(evaluation):
     cases, _ = evaluation["load_corpus"]()
     cases = cases[:3]
     now = [0.0]
@@ -118,7 +120,11 @@ def test_runner_paces_starts_and_checkpoints_failed_cases(evaluation):
     def sleep(seconds):
         now[0] += seconds
 
+    pacer = evaluation["RequestPacer"](clock=lambda: now[0], sleep=sleep)
+
     def execute(case):
+        now[0] += 0.24 if not starts else 0.0
+        pacer()
         starts.append(now[0])
         now[0] += 0.01
         if len(starts) == 2:
@@ -137,9 +143,8 @@ def test_runner_paces_starts_and_checkpoints_failed_cases(evaluation):
         execute,
         lambda rows: snapshots.append(json.loads(json.dumps(rows))),
         clock=lambda: now[0],
-        sleep=sleep,
     )
-    assert starts == pytest.approx([0, 0.25, 0.5])
+    assert starts == pytest.approx([0.24, 0.49, 0.74])
     assert [len(s) for s in snapshots] == [1, 2, 3]
     assert records[1]["status"] == "failed" and records[1]["predicted"] == "powerful"
     assert "private raw response" not in json.dumps(records)
@@ -208,14 +213,11 @@ def test_cli_counts_real_transport_attempts_and_refuses_overwrite(evaluation, mo
     monkeypatch.setattr(
         httpx, "Client", lambda **kwargs: original(transport=httpx.MockTransport(provider_response), **kwargs)
     )
-    # Only remove wall-clock pacing in this CLI test; pacing itself is checked above.
-    original_run = evaluation["run_cases"]
+    # Only remove wall-clock pacing here; hook spacing is checked independently.
     monkeypatch.setitem(
         evaluation["main"].__globals__,
-        "run_cases",
-        lambda cases, config, execute, checkpoint, **kwargs: original_run(
-            cases, config, execute, checkpoint, sleep=lambda _: None, **kwargs
-        ),
+        "RequestPacer",
+        lambda: lambda: None,
     )
     path = tmp_path / "development.json"
     assert evaluation["main"](["--split", "development", "--output", str(path)]) == 0
@@ -223,6 +225,8 @@ def test_cli_counts_real_transport_attempts_and_refuses_overwrite(evaluation, mo
     assert report["http_attempts"] == 12
     assert sum(r["http_attempts"] for r in report["records"]) == 12
     assert report["status"] == "complete" and report["summary"]["failed_assessments"] == 0
+    assert report["summary"]["cost_complete"]
+    assert report["summary"]["unknown_usage_attempts"] == 0
     assert all(r["calibrated"] for r in report["records"])
     assert "Authorization" not in path.read_text()
     with pytest.raises(FileExistsError):
@@ -283,9 +287,82 @@ def test_attempt_count_survives_unexpected_post_request_failure(evaluation):
         evaluation["EvaluationConfig"](),
         execute,
         snapshots.append,
-        sleep=lambda _: None,
         attempts=lambda: attempts[0],
     )
     assert results[0]["http_attempts"] == 1
     assert results[0]["status"] == "failed"
     assert snapshots[-1][0]["http_attempts"] == 1
+
+
+def test_interruption_after_request_hook_preserves_unknown_usage(evaluation, monkeypatch, tmp_path):
+    monkeypatch.setenv("FINIC_EVALUATION_TESTS", "1")
+    monkeypatch.setenv("FINIC_API_KEY", "test")
+
+    def interrupt(request):
+        raise KeyboardInterrupt("sensitive interrupt details")
+
+    original = httpx.Client
+    monkeypatch.setattr(
+        httpx, "Client", lambda **kwargs: original(transport=httpx.MockTransport(interrupt), **kwargs)
+    )
+    path = tmp_path / "interrupted.json"
+    with pytest.raises(KeyboardInterrupt):
+        evaluation["main"](["--split", "development", "--output", str(path)])
+    report = json.loads(path.read_text())
+    assert report["status"] == "interrupted"
+    assert report["http_attempts"] == 1
+    assert len(report["records"]) == 1
+    assert report["records"][0]["http_attempts"] == 1
+    assert report["records"][0]["status"] == "interrupted"
+    assert report["records"][0]["predicted"] is None
+    assert report["summary"]["unknown_usage_attempts"] == 1
+    assert not report["summary"]["cost_complete"]
+    assert report["summary"]["reported_input_tokens"] == 0
+    assert report["summary"]["failed_assessments"] == 1
+    assert "sensitive interrupt details" not in path.read_text()
+
+
+def test_transport_starts_are_paced_after_variable_construction(evaluation, monkeypatch, tmp_path):
+    monkeypatch.setenv("FINIC_EVALUATION_TESTS", "1")
+    monkeypatch.setenv("FINIC_API_KEY", "test")
+    now = [0.0]
+    starts = []
+    globals_ = evaluation["main"].__globals__
+    pacer_type = evaluation["RequestPacer"]
+
+    def sleep(seconds):
+        now[0] += seconds
+
+    monkeypatch.setitem(globals_, "RequestPacer", lambda: pacer_type(clock=lambda: now[0], sleep=sleep))
+    original_evaluate = evaluation["evaluate_case"]
+
+    def variable_construction(case, classifier, config):
+        now[0] += 0.24 if not starts else 0.0
+        return original_evaluate(case, classifier, config)
+
+    monkeypatch.setitem(globals_, "evaluate_case", variable_construction)
+
+    def handle(request):
+        starts.append(now[0])
+        return provider_response(request)
+
+    original_client = httpx.Client
+    monkeypatch.setattr(
+        httpx, "Client", lambda **kwargs: original_client(transport=httpx.MockTransport(handle), **kwargs)
+    )
+    assert evaluation["main"](["--split", "development", "--output", str(tmp_path / "paced.json")]) == 0
+    assert len(starts) == 12
+    assert starts[:5] == pytest.approx([0.24, 0.49, 0.74, 0.99, 1.24])
+    assert all(b - a >= 0.25 - 1e-9 for a, b in zip(starts, starts[1:], strict=False))
+
+
+def test_cost_completeness_requires_finished_run_and_attempt_coverage(evaluation):
+    config = evaluation["EvaluationConfig"]()
+    summarize = evaluation["summarize"]
+    assert not summarize([], config, run_status="interrupted", http_attempts=1)["cost_complete"]
+    row = {**record("route", "powerful", "powerful"), "http_attempts": 1}
+    assert summarize([row], config, run_status="complete", http_attempts=1)["cost_complete"]
+    for status, attempts in [("running", 1), ("interrupted", 1), ("complete", 2)]:
+        summary = summarize([row], config, run_status=status, http_attempts=attempts)
+        assert not summary["cost_complete"]
+        assert summary["unknown_usage_attempts"] == attempts - 1

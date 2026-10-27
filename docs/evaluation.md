@@ -45,6 +45,8 @@ sequentially, with `max_attempts=1`. It creates no score models, submits no outc
 and performs no tool side effects. Other services sharing the same organization
 still share Finic's rate limit; the runner is not an organization-wide limiter.
 Request counts are observed in an HTTPX request hook, including failed attempts.
+The hook enforces 250 ms spacing immediately before transport, after request
+construction and checkpoint writes.
 
 Use development results for question/context or threshold experimentation. Each
 run needs a new output filename. After freezing the implementation, dependencies,
@@ -75,10 +77,13 @@ latencies, observed HTTP attempts, versions, configuration, deterministic shuffl
 case order and corpus/source hashes. They exclude request payloads, credentials
 and raw exception messages. Partial progress is written after each completed case;
 HTTP attempts are persisted before transport. Interruptions preserve the report.
-Existing output files are never overwritten by a new run.
+An interrupted case retains its attempt count without inventing a prediction;
+it counts as a failed assessment and is excluded from routing/screening decision
+metrics. Existing output files are never overwritten by a new run.
 
 - **Routing:** accuracy against policy labels, under/overprovisioning, and
-  escalation/fallback fraction; compare with always selecting `powerful`.
+  separate fallback and powerful-selection rates; compare with always selecting
+  `powerful`. Powerful selection includes both explicit decisions and fallbacks.
 - **Screening:** true/false blocks, unsafe allows, precision, recall and false-block
   and unsafe-allow rates. Provider errors count as failed assessments and use the
   middleware's fail-closed/fallback behavior; they do not disappear from denominators.
@@ -88,12 +93,15 @@ Existing output files are never overwritten by a new run.
 - **Uncertainty:** proportions include two-sided 95% Wilson intervals. Three unsafe
   cases per split are nowhere near enough to establish a low production failure rate.
 - **Latency:** p50/p95 of each complete middleware decision, including local request
-  construction and HTTP/retries policy, but excluding the pacing sleep. This is not
+  construction, HTTP/retries policy and request-hook pacing sleep. This is not
   full host-agent latency. There is no host-answer quality or host-cost measurement;
   those report fields remain `null`.
 - **Cost:** reported successful input tokens multiplied by the configurable
   `--input-usd-per-million` price (default USD 0.035). This is an estimate, not a bill.
-  Failed requests may have unreported usage, so `cost_complete` is false if any fail.
+  `unknown_usage_attempts` counts attempts without successful usage records.
+  `cost_complete` requires a complete run, no failed assessments and a successful
+  usage record covering every observed attempt. Interrupted runs are incomplete
+  even if interrupted before their first response.
 
 The runner sends no `base_rate`; `calibrated` is recorded, typically absent/null.
 It does not claim deployment calibration. If adding base rates later, revise the
