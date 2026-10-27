@@ -16,6 +16,8 @@ Compose probability-based decisions with LCEL, expose them as agent tools, and u
 middleware for model routing and tool screening.
 An independent integration maintained by Suprep Labs.
 This package is alpha and is not endorsed by Finic or LangChain.
+See the [compatibility and support policy](https://supreplabs.github.io/langchain-finic/compatibility/)
+for the public API, tested environments, and versioning commitments.
 
 ## Quickstart
 
