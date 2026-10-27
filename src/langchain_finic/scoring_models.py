@@ -44,12 +44,12 @@ def _rows(data: Rows | Record) -> list[Record]:
         raise ValueError("Invalid CSV data") from None
 
 
-def _label(value: JsonValue, *, csv_input: bool) -> bool:
+def _label(value: JsonValue) -> bool:
     if isinstance(value, bool) or type(value) is int and value in (0, 1):
         return bool(value)
-    if csv_input and isinstance(value, str) and value.lower() in {"true", "false", "0", "1"}:
-        return value.lower() in {"true", "1"}
-    raise ValueError("Each outcome must be a boolean or integer zero/one")
+    if isinstance(value, str) and value.lower() in {"true", "false", "0", "1", "yes", "no"}:
+        return value.lower() in {"true", "1", "yes"}
+    raise ValueError("Each outcome must be a boolean, integer zero/one, or text true/false/1/0/yes/no")
 
 
 def _check_record(row: Record) -> None:
@@ -109,7 +109,7 @@ class CreateScoreRequest(Model):
             raise ValueError("Creating a score requires at least 100 labeled rows")
         labels = []
         for row in rows:
-            labels.append(_label(row.get("is_bad"), csv_input=isinstance(self.data, str)))
+            labels.append(_label(row.get("is_bad")))
             if not isinstance(self.data, str):
                 _check_record(row)
             elif not set(row) - {"is_bad"}:
@@ -137,7 +137,7 @@ class CalibrationRequest(Model):
             score_id = row.get("score_id")
             if not isinstance(score_id, str) or not score_id.strip() or len(score_id) > 200:
                 raise ValueError("Each outcome needs a score_id of 1 to 200 characters")
-            _label(row.get("is_bad"), csv_input=isinstance(self.data, str))
+            _label(row.get("is_bad"))
             if "model_id" in row and row["model_id"] != self.model_id:
                 raise ValueError("Outcome model_id must match the request model_id")
         return self
