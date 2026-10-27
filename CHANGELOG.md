@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add FinicScorer, selected lifecycle tools, and checkpointed composition examples.
 - Accept documented text outcome labels in JSON and CSV without rewriting inputs.
 
 - Add typed sync/async custom scoring, creation, discovery, calibration, and job APIs.

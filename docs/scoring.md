@@ -83,3 +83,73 @@ operations only where your application intends to perform them.
 
 See the [Finic API reference](https://docs.finic.ai/reference) for provider limits
 and [API types](api.md) for method signatures.
+
+## Native LangChain scoring
+
+`FinicScorer(model_id=...)` implements the typed Runnable interface using
+`ScoringInput` and `ScoringResponse`. It supports `invoke`, `ainvoke`, LCEL,
+`batch`, `abatch`, callbacks, configurable fields, and `as_tool()`.
+
+```python
+from langchain_finic import FinicScorer
+
+async def score_records(model_id: str, records: list[dict]):
+    async with FinicScorer(model_id=model_id) as scorer:
+        # Each input contains its own unique score_id and data.
+        return await scorer.abatch(records, {"max_concurrency": 2})
+```
+
+Direct scorer batches default to five concurrent calls; `max_concurrency`
+overrides this. Other LangChain compositions follow their own batching defaults,
+so pass an explicit concurrency limit to the outer chain. Concurrency is not a
+requests-per-second limiter: Finic's organization rate and quotas still apply.
+Batch results keep input order. `return_exceptions=True` preserves per-record
+failures; a batch is not atomic and cancellation cannot retract accepted writes.
+Streaming yields one complete result. Do not put automatic retry wrappers around
+write operations without considering duplicate IDs and ambiguous outcomes.
+
+The scorer uses the classifier's ownership rules: invocation-scoped owned pools
+unless used as a context manager; injected clients remain caller-owned. Default
+serialization contains a secret reference rather than an API key. Injected
+transports/clients are not serializable. The bound `model_id` is configurable;
+individual record inputs cannot override it.
+
+Callbacks and LangSmith traces include the operation and model ID; successful
+outputs retain request and score IDs. Tracing is opt-in and record contents are
+not automatically redacted. The scorer does not fabricate token usage metadata
+for an endpoint that does not return it.
+
+## Selected lifecycle tools
+
+```python
+from langchain_finic import FinicClient, FinicToolkit
+
+# Keep this client open for the entire lifetime of the returned tools.
+def lifecycle_tools(client: FinicClient):
+    read_tools = FinicToolkit(client=client).get_tools()
+    creation_tool = FinicToolkit(
+        client=client, operations=("create_score",),
+    ).get_tools()[0]
+    return read_tools, creation_tool
+```
+
+The defaults are `finic_list_scores` and `finic_get_job_status`. Select
+`create_score` or `calibrate` explicitly when your application authorizes those
+writes. All tools have Pydantic argument schemas and native async implementations.
+Creation/calibration return job handles immediately. `FinicError` propagates with
+its structured metadata; an application can decide how to handle it. Job-status
+tool results include the provider's failure details, so apply your application's
+usual trace-access controls.
+
+The base install includes the scorer and toolkit. Install the `middleware` extra
+for the LangChain agent and LangGraph examples:
+
+- [Scoring with LCEL](https://github.com/supreplabs/langchain-finic/blob/main/examples/scoring.py)
+- [Agent with selected tools](https://github.com/supreplabs/langchain-finic/blob/main/examples/scoring_agent.py)
+- [Checkpointed lifecycle graph](https://github.com/supreplabs/langchain-finic/blob/main/examples/lifecycle_graph.py)
+
+The graph separates each write from its following wait and retains job/model IDs
+in checkpoints. Resume a failed wait using the same thread and a `None` input;
+do not start the graph over. Use durable checkpoints for process restarts. Even
+with checkpoints, a write accepted remotely before a connection failure may need
+manual reconciliation. The graph intentionally has no automatic write retries.

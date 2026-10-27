@@ -47,3 +47,13 @@ Requires `langchain-finic[middleware]`.
 ::: langchain_finic.scoring_models
     options:
       members: [ScoringInput, ScoringRequest, ScoringResponse, CreateScoreRequest, CreateScoreResponse, CalibrationRequest, CalibrationResponse, ScoreModel, ListScoresResponse, JobStatus, JobFailure]
+
+## Scoring Runnable and toolkit
+
+::: langchain_finic.scorer.FinicScorer
+    options:
+      members: [model_id, invoke, ainvoke, batch, abatch, as_tool]
+
+::: langchain_finic.toolkit.FinicToolkit
+    options:
+      members: [client, operations, get_tools]
