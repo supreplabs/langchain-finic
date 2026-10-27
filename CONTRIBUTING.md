@@ -13,6 +13,9 @@ Keep changes focused, describe the behavior and validation in your pull request,
 and add regression tests for bugs. Public imports and serialized class identifiers
 are compatibility commitments, including during the alpha period. Discuss breaking
 changes in an issue before implementing them. Use conventional commit titles.
+Follow the [compatibility policy](docs/compatibility.md) when changing public
+interfaces, defaults, dependencies, or serialization. Release promotion requires
+the evidence and checklist in [RELEASING.md](RELEASING.md#promotion-gates).
 
 `tests/unit_tests` includes mocked framework composition tests and LangChain's
 standard tool tests. Network access is disabled. Tests must not load `.env` or
@@ -21,10 +24,13 @@ change independently of this package. Update it deliberately with the lockfile.
 
 `make integration_test` runs LangChain's official `ToolsIntegrationTests` against
 the live Finic API, plus our sync and async classifier smoke tests. With the pinned
-`langchain-tests` version, this runs seven tests and makes six paid API requests:
-four tool calls (sync and async, with and without a `ToolCall`) and two classifier
-calls. Each request gets one attempt, using synthetic evidence. The remaining test
-checks that the inherited standard tests have not been overridden.
+`langchain-tests` version, this runs fifteen tests and makes eighteen paid API requests:
+four standard tool calls, two classifier calls, four batch items, two LangGraph tool
+calls, four middleware decisions, and two documented data/context checks. Sync and async paths are exercised. The direct,
+tool, batch, and graph requests cover all four question types. Middleware runs use
+scripted host chat models with live Finic routing and tool-risk decisions; no other
+provider key is needed. Each request gets one attempt, using synthetic evidence.
+One additional check verifies that inherited standard tests have not been overridden.
 
 Export `FINIC_API_KEY` before running the command; the Makefile sets
 `FINIC_LIVE_TESTS=1` and enables network access for this opt-in run. Direct pytest
@@ -40,7 +46,8 @@ release workflows also run it before building and publishing. Configure the
 repository secret `FINIC_API_KEY` to enable these runs. If it is absent, the live
 job is skipped with an explanation in the workflow summary; releases can proceed.
 If it is present, live test failures fail the workflow and block publishing.
-Each enabled run uses Python 3.12 and makes six API requests without retries.
+Each enabled run uses Python 3.12 and makes eighteen API requests without retries
+(approximately 540 requests per 30 daily runs, plus manual/release runs).
 
 Use `make format` for formatting and `uv lock` after dependency changes.
 Documentation lives in `docs/`; public API pages are generated from docstrings.
@@ -70,3 +77,8 @@ order shown. Prefer links over duplicated explanations and check relative links.
 Follow [LangChain's documentation quality guidance](https://docs.langchain.com/oss/python/contributing/documentation#quality-standards).
 Its Mintlify-specific syntax applies to LangChain-hosted pages; this repository's
 site uses MkDocs and generated Python API references.
+
+Custom scoring/lifecycle verification is a separate opt-in and creates a persistent
+server-side model. It is excluded from PR CI and the daily decision suite. Read
+[the test coverage and lifecycle guide](tests/README.md) before using
+`make lifecycle_test`; a missing key or lifecycle opt-in skips that suite.

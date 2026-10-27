@@ -16,6 +16,8 @@ Compose probability-based decisions with LCEL, expose them as agent tools, and u
 middleware for model routing and tool screening.
 An independent integration maintained by Suprep Labs.
 This package is alpha and is not endorsed by Finic or LangChain.
+See the [compatibility and support policy](https://supreplabs.github.io/langchain-finic/compatibility/)
+for the public API, tested environments, and versioning commitments.
 
 ## Quickstart
 
@@ -30,7 +32,7 @@ export FINIC_API_KEY=your_key
 from langchain_finic import DecisionRequest, FinicClassifier, Noul
 
 request = DecisionRequest(
-    state={"events": ["New device", "Payment to an unfamiliar recipient"]},
+    data={"events": ["New device", "Payment to an unfamiliar recipient"]},
     questions={"takeover": Noul(instructions="Does the evidence suggest account takeover?")},
 )
 with FinicClassifier() as classifier:
@@ -87,3 +89,7 @@ Default tests run offline with mock providers. Report bugs through
 through [private security reporting](SECURITY.md).
 
 Released under the [MIT license](LICENSE). See the [changelog](CHANGELOG.md) for version history.
+
+Custom models are available through `FinicScorer` and `FinicToolkit`. See the
+[custom scoring guide](docs/scoring.md) for native LangChain composition,
+model lifecycle operations, retry behavior, and examples.

@@ -1,7 +1,8 @@
 """Pydantic models for Finic Grayson's decision API."""
 
 import math
-from typing import Annotated, Literal, Self
+from collections.abc import Mapping
+from typing import Annotated, Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator, model_validator
 
@@ -22,7 +23,7 @@ class NoulQuestion(Model):
     type: Literal["noul"] = "noul"
     instructions: Text
     criteria: dict[Literal["true", "false"], Text] | None = None
-    base_rate: Probability | None = None
+    base_rate: Annotated[float, Field(gt=0, lt=1, allow_inf_nan=False)] | None = None
 
 
 class ChoiceQuestion(Model):
@@ -44,9 +45,14 @@ class ChoiceQuestion(Model):
                 raise ValueError("Base-rate keys must be criteria keys")
             if self.type == "choice" and (
                 self.base_rate.keys() != self.criteria.keys()
-                or not math.isclose(sum(self.base_rate.values()), 1, abs_tol=1e-6)
+                or not math.isclose(sum(self.base_rate.values()), 1, abs_tol=0.020000000001)
             ):
                 raise ValueError("Choice base rates must cover every option and sum to one")
+            if self.type == "choice":
+                total = sum(self.base_rate.values())
+                self.base_rate = {key: rate / total for key, rate in self.base_rate.items()}
+            elif any(not 0 < rate < 1 for rate in self.base_rate.values()):
+                raise ValueError("Multi-choice base rates must be strictly between zero and one")
         return self
 
 
@@ -63,7 +69,7 @@ class ScoreQuestion(Model):
             raise ValueError("Score levels must be unique")
         if self.base_rate is not None and (
             len(self.base_rate) != len(self.criteria)
-            or not math.isclose(sum(self.base_rate), 1, abs_tol=1e-6)
+            or not math.isclose(sum(self.base_rate), 1, abs_tol=0.020000000001)
         ):
             raise ValueError("Score base rates must cover every level and sum to one")
         return self
@@ -74,10 +80,61 @@ Question = Annotated[NoulQuestion | ChoiceQuestion | ScoreQuestion, Field(discri
 
 class DecisionRequest(Model):
     model: ModelName = Field(default_factory=lambda: env_option("MODEL", "grayson-1"), validate_default=True)
-    state: Text | dict[str, JsonValue] | list[JsonValue]
+    data: Text | dict[str, JsonValue] | list[JsonValue] | None = None
+    context: Text | None = None
     questions: Annotated[dict[Name, Question], Field(min_length=1, max_length=128)]
 
-    @field_validator("state", mode="before")
+    @model_validator(mode="before")
+    @classmethod
+    def legacy_state(cls, value):
+        if isinstance(value, dict) and "state" in value:
+            if "data" in value:
+                raise ValueError("Pass data or legacy state, not both")
+            value = dict(value)
+            value["data"] = value.pop("state")
+            if value["data"] is None:
+                raise ValueError("Legacy state cannot be null")
+        return value
+
+    @model_validator(mode="after")
+    def require_evidence(self) -> Self:
+        if self.data is None and self.context is None:
+            raise ValueError("Provide data, context, or both")
+        return self
+
+    @property
+    def state(self):
+        """Compatibility accessor; serialized requests use data."""
+        return self.data
+
+    @state.setter
+    def state(self, value):
+        # Validate before assignment so invalid legacy updates leave evidence unchanged.
+        updated = type(self).model_validate(
+            {
+                **self.model_dump(exclude={"data"}),
+                "state": value,
+            }
+        )
+        self.data = updated.data
+        self.__pydantic_fields_set__.add("data")
+
+    def model_copy(self, *, update: Mapping[str, Any] | None = None, deep: bool = False) -> Self:
+        """Map legacy updates to data while preserving normal Pydantic copy semantics."""
+        if update is not None and "state" in update:
+            if "data" in update:
+                raise ValueError("Pass data or legacy state, not both")
+            if update["state"] is None:
+                raise ValueError("Legacy state cannot be null")
+            mapped = dict(update)
+            mapped["data"] = mapped.pop("state")
+            # Pydantic copies normally trust updates; validate the legacy evidence
+            # before it becomes the canonical field instead of silently ignoring it.
+            validated = type(self).model_validate({**self.model_dump(), **mapped})
+            update = {**mapped, "data": validated.data}
+        return super().model_copy(update=update, deep=deep)
+
+    @field_validator("data", mode="before")
     @classmethod
     def normalize_messages(cls, value):
         return normalize_state(value)

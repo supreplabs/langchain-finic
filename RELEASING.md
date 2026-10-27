@@ -83,8 +83,9 @@ pip install 'langchain-finic[middleware]==0.1.0a5'
 ## Live smoke checks
 
 Default tests and installation checks use mock HTTP and spend no credits. To make
-six explicit live requests with fictional data (seven checks, including LangChain's
-standard tool integration suite):
+eighteen explicit live requests with fictional data (fifteen checks, including
+LangChain's standard tool integration suite, all question types, batches, LangGraph,
+middleware, and documented data/context inputs):
 
 ```bash
 export FINIC_API_KEY=your_key
@@ -125,3 +126,60 @@ uv run --locked --group build python scripts/release_metadata.py --output-dir re
 Review `release-info/notes.md` and `release-info/metadata.json`. Updating an existing
 GitHub release title or description does not change its tag, distribution files, or
 PyPI description. Do not rerun an old release with new source to update presentation.
+
+## Promotion gates
+
+The package remains alpha until maintainers review the readiness evidence and
+explicitly authorize a promotion. Merging a readiness PR does not authorize a
+release. The progression is `0.1.0aN` → `0.1.0bN` → optional `0.1.0rcN` → `0.1.0`.
+These are project acceptance criteria, not a certification from LangChain or Finic.
+
+| Gate | Evidence required | Tracking |
+| --- | --- | --- |
+| Live contracts | All question types, bounded batches, LangGraph tools, and middleware pass against Finic; request budget documented | [#7](https://github.com/supreplabs/langchain-finic/issues/7) |
+| Failure handling | Offline coverage for timeouts, retry exhaustion, malformed answers, cancellation, partial batches, and ownership; no unresolved blocking defect | [#8](https://github.com/supreplabs/langchain-finic/issues/8) |
+| Public contract | Supported API, dependency policy, deprecation, and security support reviewed | [#9](https://github.com/supreplabs/langchain-finic/issues/9) |
+| Publishing | Bounded fresh-index installation retries; exact-version installation and artifact hashes verified | [#10](https://github.com/supreplabs/langchain-finic/issues/10) |
+| Beta observation | Seven daily runs of the expanded suite and two or three representative application validations, with failures investigated | [#11](https://github.com/supreplabs/langchain-finic/issues/11) |
+| RC/final acceptance | Independent beta feedback, upgrade checks, resolved blockers, and installed release-candidate validation | [#12](https://github.com/supreplabs/langchain-finic/issues/12) |
+
+The seven-day observation window starts after the expanded suite is merged to
+`main`. A skipped live run is not evidence of a pass. Preserve the initial failed
+attempts when recording reruns, distinguish provider/environment failures from
+package defects, and link the investigation. This observation target can be revised
+explicitly by maintainers; it must not be silently marked complete.
+
+Record each application or daily-run result in its tracking issue with:
+
+- Date, source commit, installed package/dependency versions, and workflow/run link.
+- Synthetic scenario, tests actually executed, outcome, and request count.
+- Failures, investigation, related fix, and retest links, if any.
+- Evidence source: maintainer-run test, scripted host model, or independent user.
+
+Do not include credentials, customer profiles, or raw sensitive responses.
+Maintainer smoke tests do not count as independent-user feedback. No outreach is
+required or authorized merely by creating a readiness issue.
+
+Before final release, test representative consumers upgrading from the last alpha
+and beta versions to the release candidate. Include imports, request schemas,
+serialization, sync/async composition, and middleware where used. Record migrations
+and dependency changes. A release candidate needs the same distribution, CI, live,
+and documentation checks as a final release; any skipped check must be explained.
+
+### Promotion checklist
+
+- [ ] Review the linked gates, evidence, known issues, and explicit go/no-go decision.
+- [ ] Update `pyproject.toml` version and run `uv lock`.
+- [ ] Set the development-status classifier appropriately (`4 - Beta` for beta/RC;
+      `5 - Production/Stable` for final only when the stated acceptance gates are met).
+- [ ] Add a version-specific changelog section, including migrations and known limits.
+- [ ] Update README/docs installation pins and maturity wording, the release target,
+      and the security/support policy; preserve historical changelog entries.
+- [ ] Run `make check`, review compatibility CI, and review actual live-test results.
+- [ ] Validate release notes, archive contents, and the exact source commit to publish.
+- [ ] Obtain explicit maintainer authorization, then create and push the new matching tag.
+- [ ] Verify TestPyPI/PyPI hashes, public installation, GitHub assets, and documentation.
+
+Keep readiness issues open until their evidence exists. The workflow's permitted
+missing-key skip does not by itself satisfy the live-test promotion gate. Never move
+an existing tag or replace a published artifact to promote a release.
