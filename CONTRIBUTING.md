@@ -70,3 +70,8 @@ order shown. Prefer links over duplicated explanations and check relative links.
 Follow [LangChain's documentation quality guidance](https://docs.langchain.com/oss/python/contributing/documentation#quality-standards).
 Its Mintlify-specific syntax applies to LangChain-hosted pages; this repository's
 site uses MkDocs and generated Python API references.
+
+Custom scoring/lifecycle verification is a separate opt-in and creates a persistent
+server-side model. It is excluded from PR CI and the daily decision suite. Read
+[the test coverage and lifecycle guide](tests/README.md) before using
+`make lifecycle_test`; a missing key or lifecycle opt-in skips that suite.

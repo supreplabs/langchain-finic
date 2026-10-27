@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add a six-endpoint coverage matrix and separately opted-in synthetic lifecycle validation.
+
 - Add FinicScorer, selected lifecycle tools, and checkpointed composition examples.
 
 - Add typed sync/async custom scoring, creation, discovery, calibration, and job APIs.
