@@ -3,6 +3,7 @@
 **Typed Finic Grayson decisions for LangChain and LangGraph.**
 
 [![PyPI version](https://img.shields.io/pypi/v/langchain-finic)](https://pypi.org/project/langchain-finic/)
+[![Downloads](https://img.shields.io/pypi/dm/langchain-finic)](https://pypistats.org/packages/langchain-finic)
 [![Python versions](https://img.shields.io/pypi/pyversions/langchain-finic)](https://pypi.org/project/langchain-finic/)
 [![CI](https://github.com/supreplabs/langchain-finic/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/supreplabs/langchain-finic/actions/workflows/ci.yml)
 [![MIT license](https://img.shields.io/github/license/supreplabs/langchain-finic)](LICENSE)
