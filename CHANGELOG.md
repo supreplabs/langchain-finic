@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add typed sync/async custom scoring, creation, discovery, calibration, and job APIs.
+- Use conservative write retries and explicit bounded job polling.
+
 - Align decisions with Finic data/context inputs, retaining state as a compatibility alias.
 - Match documented base-rate boundaries and expose structured provider error identifiers.
 

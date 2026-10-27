@@ -1,17 +1,32 @@
 """HTTP transport for the Finic decision API."""
 
 import asyncio
+import math
 import random
 import re
 import time
-from threading import Lock
-from typing import NoReturn
+from concurrent.futures import CancelledError
+from threading import Event, Lock
+from typing import NoReturn, TypeVar
+from urllib.parse import quote
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError, field_validator
 
 from langchain_finic._config import env_option
 from langchain_finic.models import DecisionRequest, DecisionResponse
+from langchain_finic.scoring_models import (
+    CalibrationRequest,
+    CalibrationResponse,
+    CreateScoreRequest,
+    CreateScoreResponse,
+    JobStatus,
+    ListScoresResponse,
+    ScoringRequest,
+    ScoringResponse,
+)
+
+ResponseT = TypeVar("ResponseT", bound=BaseModel)
 
 RETRYABLE = {429, 500, 502, 503, 504}
 
@@ -155,7 +170,7 @@ class FinicClient:
         await self.aclose()
 
     @staticmethod
-    def _body(request: DecisionRequest) -> bytes:
+    def _body(request: BaseModel) -> bytes:
         body = request.model_dump_json(exclude_none=True).encode()
         if len(body) > 2_000_000:
             raise FinicError("Request exceeds Finic's 2 MB body limit; shorten the case")
@@ -209,36 +224,206 @@ class FinicClient:
             param=identifier(error.get("param")),
         )
 
-    def decide(self, request: DecisionRequest) -> DecisionResponse:
-        body = self._body(request)
+    def _send(
+        self,
+        method: str,
+        path: str,
+        *,
+        request: BaseModel | None = None,
+        retry: bool = False,
+        timeout: float | None = None,
+    ) -> httpx.Response:
+        body = self._body(request) if request is not None else None
         client = self._sync()
-        for attempt in range(self.config.max_attempts):
-            last = attempt == self.config.max_attempts - 1
+        attempts = self.config.max_attempts if retry else 1
+        options = self._options()
+        if timeout is not None:
+            options["timeout"] = min(timeout, self.config.timeout)
+        for attempt in range(attempts):
+            last = attempt == attempts - 1
             try:
-                response = client.post("https://api.finic.ai/v1/decide", content=body, **self._options())
+                response = client.request(method, "https://api.finic.ai" + path, content=body, **options)
             except httpx.TransportError:
                 if last:
-                    raise FinicError("Finic unreachable after bounded retries") from None
+                    raise FinicError(
+                        "Finic transport failed; write outcome may be unknown"
+                        if not retry
+                        else "Finic unreachable after bounded retries"
+                    ) from None
             else:
                 if response.status_code not in RETRYABLE or last:
-                    return self._parse(response, request)
+                    return response
             time.sleep(_delay(attempt))
         raise FinicError("Finic request did not complete")
 
-    async def adecide(self, request: DecisionRequest) -> DecisionResponse:
-        body = self._body(request)
+    async def _asend(
+        self,
+        method: str,
+        path: str,
+        *,
+        request: BaseModel | None = None,
+        retry: bool = False,
+        timeout: float | None = None,
+    ) -> httpx.Response:
+        body = self._body(request) if request is not None else None
         client = self._async()
-        for attempt in range(self.config.max_attempts):
-            last = attempt == self.config.max_attempts - 1
+        attempts = self.config.max_attempts if retry else 1
+        options = self._options()
+        if timeout is not None:
+            options["timeout"] = min(timeout, self.config.timeout)
+        for attempt in range(attempts):
+            last = attempt == attempts - 1
             try:
-                response = await client.post(
-                    "https://api.finic.ai/v1/decide", content=body, **self._options()
+                response = await client.request(
+                    method, "https://api.finic.ai" + path, content=body, **options
                 )
             except httpx.TransportError:
                 if last:
-                    raise FinicError("Finic unreachable after bounded retries") from None
+                    raise FinicError(
+                        "Finic transport failed; write outcome may be unknown"
+                        if not retry
+                        else "Finic unreachable after bounded retries"
+                    ) from None
             else:
                 if response.status_code not in RETRYABLE or last:
-                    return self._parse(response, request)
+                    return response
             await asyncio.sleep(_delay(attempt))
         raise FinicError("Finic request did not complete")
+
+    @staticmethod
+    def _result(response: httpx.Response, schema: type[ResponseT]) -> ResponseT:
+        if not response.is_success:
+            FinicClient._raise_http_error(response)
+        try:
+            return schema.model_validate(response.json())
+        except (ValueError, ValidationError):
+            raise FinicError(
+                "Finic response does not match the expected contract",
+                request_id=response.headers.get("x-request-id"),
+            ) from None
+
+    def decide(self, request: DecisionRequest) -> DecisionResponse:
+        return self._parse(self._send("POST", "/v1/decide", request=request, retry=True), request)
+
+    async def adecide(self, request: DecisionRequest) -> DecisionResponse:
+        return self._parse(await self._asend("POST", "/v1/decide", request=request, retry=True), request)
+
+    @staticmethod
+    def _scored(response: httpx.Response, request: ScoringRequest) -> ScoringResponse:
+        result = FinicClient._result(response, ScoringResponse)
+        try:
+            result.validate_for(request)
+        except ValueError:
+            raise FinicError(
+                "Finic scoring response identity mismatch", request_id=response.headers.get("x-request-id")
+            ) from None
+        return result
+
+    def score(self, request: ScoringRequest) -> ScoringResponse:
+        """Score once. Never replay an ambiguous write or generate a score ID."""
+        return self._scored(self._send("POST", "/v1/score", request=request), request)
+
+    async def ascore(self, request: ScoringRequest) -> ScoringResponse:
+        return self._scored(await self._asend("POST", "/v1/score", request=request), request)
+
+    def create_score(self, request: CreateScoreRequest) -> CreateScoreResponse:
+        """Start creation once; return the model/job IDs without polling."""
+        return self._result(self._send("POST", "/v1/scores", request=request), CreateScoreResponse)
+
+    async def acreate_score(self, request: CreateScoreRequest) -> CreateScoreResponse:
+        return self._result(await self._asend("POST", "/v1/scores", request=request), CreateScoreResponse)
+
+    def list_scores(self) -> ListScoresResponse:
+        """List up to 500 scores, newest first (the API has no pagination)."""
+        return self._result(self._send("GET", "/v1/scores", retry=True), ListScoresResponse)
+
+    async def alist_scores(self) -> ListScoresResponse:
+        return self._result(await self._asend("GET", "/v1/scores", retry=True), ListScoresResponse)
+
+    def calibrate(self, request: CalibrationRequest) -> CalibrationResponse:
+        """Submit outcomes once; return the accepted job without polling."""
+        return self._result(self._send("POST", "/v1/calibrate", request=request), CalibrationResponse)
+
+    async def acalibrate(self, request: CalibrationRequest) -> CalibrationResponse:
+        return self._result(await self._asend("POST", "/v1/calibrate", request=request), CalibrationResponse)
+
+    @staticmethod
+    def _job_path(job_id: str) -> str:
+        if not isinstance(job_id, str) or not job_id.strip():
+            raise ValueError("job_id must be nonblank text")
+        return "/v1/jobs/" + quote(job_id, safe="")
+
+    @staticmethod
+    def _job(response: httpx.Response, job_id: str) -> JobStatus:
+        job = FinicClient._result(response, JobStatus)
+        if job.job_id != job_id:
+            raise FinicError(
+                "Finic job response identity mismatch", request_id=response.headers.get("x-request-id")
+            )
+        return job
+
+    def get_job_status(self, job_id: str) -> JobStatus:
+        return self._job(self._send("GET", self._job_path(job_id), retry=True), job_id)
+
+    async def aget_job_status(self, job_id: str) -> JobStatus:
+        return self._job(await self._asend("GET", self._job_path(job_id), retry=True), job_id)
+
+    @staticmethod
+    def _poll_options(timeout: float, poll_interval: float) -> None:
+        if any(not math.isfinite(value) or value <= 0 for value in (timeout, poll_interval)):
+            raise ValueError("timeout and poll_interval must be positive finite seconds")
+
+    @staticmethod
+    def _completed(job: JobStatus) -> JobStatus:
+        if job.error is not None:
+            raise FinicError("Finic job failed", error_type=job.error.type)
+        return job
+
+    def wait_for_job(
+        self,
+        job_id: str,
+        *,
+        timeout: float = 900,
+        poll_interval: float = 30,
+        cancel_event: Event | None = None,
+    ) -> JobStatus:
+        """Poll to completion; cancellation is checked between requests and during waits.
+
+        The deadline prevents new polls and bounds HTTP phase timeouts. An in-flight
+        synchronous request cannot be forcibly interrupted by the cancellation event.
+        """
+        self._poll_options(timeout, poll_interval)
+        path = self._job_path(job_id)
+        deadline = time.monotonic() + timeout
+        event = cancel_event if cancel_event is not None else Event()
+        while True:
+            if event.is_set():
+                raise CancelledError("Finic job wait cancelled")
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError("Finic job wait deadline exceeded")
+            job = self._job(self._send("GET", path, timeout=remaining), job_id)
+            if event.is_set():
+                raise CancelledError("Finic job wait cancelled")
+            if time.monotonic() >= deadline:
+                raise TimeoutError("Finic job wait deadline exceeded")
+            if job.complete:
+                return self._completed(job)
+            event.wait(min(poll_interval, max(0, deadline - time.monotonic())))
+
+    async def await_job(
+        self,
+        job_id: str,
+        *,
+        timeout: float = 900,
+        poll_interval: float = 30,
+    ) -> JobStatus:
+        """Poll with an overall deadline; task cancellation stops pending I/O/sleep."""
+        self._poll_options(timeout, poll_interval)
+        path = self._job_path(job_id)
+        async with asyncio.timeout(timeout):
+            while True:
+                job = self._job(await self._asend("GET", path), job_id)
+                if job.complete:
+                    return self._completed(job)
+                await asyncio.sleep(poll_interval)
