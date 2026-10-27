@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add a six-endpoint coverage matrix and separately opted-in synthetic lifecycle validation.
+
 - Add FinicScorer, selected lifecycle tools, and checkpointed composition examples.
 - Accept documented text outcome labels in JSON and CSV without rewriting inputs.
 
