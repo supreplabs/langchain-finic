@@ -141,3 +141,54 @@ Two targeted real decision calls also passed on that date: data plus context,
 and context only. The ordinary LangChain/agent failure-path checks remain offline;
 these live results should not be described as a live test of every field or an
 independent accuracy evaluation.
+
+## Beta observation evidence
+
+The live workflow records `live-observation-RUN_ID-ATTEMPT` artifacts and a job
+summary on success, test failure, or missing credentials. Each scheduled/manual
+run on `main` links its sanitized report to issue #11. Release runs retain their
+own artifact and summary, and never count as scheduled observations.
+
+Reports include the source commit, event/ref, attempt, UTC timestamp, workflow
+link, Python/package versions, test counts, and observed Finic HTTP attempts.
+The request counter records before each send, including failed attempts, and
+never records headers or payloads. Published artifacts contain only JSON/Markdown
+summaries: JUnit failure text, customer/model responses, and credentials are omitted.
+A missing counter remains unknown rather than being reported as zero.
+
+A qualifying observation requires a scheduled run on `main`, 15 passing checks,
+no skipped checks, and exactly 18 HTTP attempts. Missing/invalid evidence cannot
+qualify. Review seven consecutive dates and every attempt before closing the gate;
+reruns do not erase original failures. Cancellation or an Actions outage can
+prevent reporting entirely; a missing day's evidence is not a pass. Artifacts are
+retained for 90 days, with summary links preserved in the issue.
+
+Only the evidence job receives issue-write permission. The reusable workflow's
+release caller grants that permission too, although release runs do not post daily
+comments. Neither reporting nor application validation promotes or publishes a release.
+
+## Installed-package application validation
+
+`scripts/validate_applications.py` exercises three small synthetic consumers of
+an installed alpha: typed payment review with customer context (two decisions),
+a decision tool paused and resumed through a LangGraph checkpoint (one decision),
+and routing plus tool screening (two decisions). The host chat model is scripted,
+the tool reads local fictional data, and no creation/calibration endpoint is used.
+The checkpoint test uses in-process memory, not process-restart durability.
+
+Install the published package in an isolated environment, then run outside the
+checkout using a new evidence path. Export `FINIC_API_KEY` separately:
+
+```bash
+uv venv /tmp/finic-apps
+uv pip install --python /tmp/finic-apps/bin/python 'langchain-finic[middleware]==0.1.0a6'
+cd /tmp
+FINIC_APPLICATION_TESTS=1 /tmp/finic-apps/bin/python /path/to/langchain-finic/scripts/validate_applications.py --output /tmp/finic-apps-new.json --version 0.1.0a6
+```
+
+The runner rejects checkout imports, unexpected package versions, existing evidence
+files, and missing opt-in/credentials. Its budget is five decisions, one attempt
+each. Evidence includes versions, request counts, per-application outcomes, and
+exception types without raw error messages or model responses. Failed attempts
+remain available for investigation. This is maintainer validation of representative
+consumer flows, not independent-user adoption or predictive-accuracy evaluation.

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Record sanitized daily live-test evidence and add installed-package application validation.
+
 ## 0.1.0a6
 
 - Add typed sync/async clients for custom scoring, model creation, model listing,
