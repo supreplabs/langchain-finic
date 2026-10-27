@@ -4,6 +4,11 @@
 
 - Add a versioned synthetic System 1 evaluation corpus and bounded opt-in runner,
   with frozen held-out configuration, failure-inclusive metrics and explicit limitations.
+- Include registered tool semantics in screening and add bounded context-builder hooks for routing and screening.
+- Explain calibration warm-up, question versioning, application deadlines and shared connection ownership; add an offline-tested async routing example.
+- Require explicit scoring-tool opt-in for schema mutation/bypass; direct scoring flags remain available.
+- Preserve scoring-tool names and JSON output through bindings and configurable fields.
+- Apply scorer concurrency defaults to completion-order batches.
 
 - Record sanitized daily live-test evidence and add installed-package application validation.
 
