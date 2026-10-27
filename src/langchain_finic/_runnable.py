@@ -1,9 +1,13 @@
 """Private shared configuration and resource ownership for Finic Runnables."""
 
-from typing import Generic, Self, TypeVar
+from typing import Any, Generic, Self, TypeVar
 
 import httpx
-from langchain_core.load.serializable import to_json_not_implemented
+from langchain_core.load.serializable import (
+    SerializedConstructor,
+    SerializedNotImplemented,
+    to_json_not_implemented,
+)
 from langchain_core.runnables import RunnableSerializable
 from pydantic import ConfigDict, Field, PrivateAttr, SecretStr, model_validator
 from pydantic.json_schema import SkipJsonSchema
@@ -81,7 +85,7 @@ class FinicRunnable(RunnableSerializable[InputT, OutputT], Generic[InputT, Outpu
     def lc_secrets(self) -> dict[str, str]:
         return {"api_key": "FINIC_API_KEY"}
 
-    def to_json(self):
+    def to_json(self) -> SerializedConstructor | SerializedNotImplemented:
         # Recreating borrowed clients/transports from JSON would silently change behavior.
         if any(
             value is not None
@@ -106,17 +110,17 @@ class FinicRunnable(RunnableSerializable[InputT, OutputT], Generic[InputT, Outpu
             await self._client.aclose()
         self._closed = True
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         if self._closed:
             raise RuntimeError(f"{type(self).__name__} is closed")
         self._pool_connections = True
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, *args: Any) -> None:
         self.close()
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> Self:
         return self.__enter__()
 
-    async def __aexit__(self, *args):
+    async def __aexit__(self, *args: Any) -> None:
         await self.aclose()

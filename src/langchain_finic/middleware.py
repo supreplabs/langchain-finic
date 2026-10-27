@@ -1,19 +1,23 @@
 """Optional LangChain agent middleware. Install langchain-finic[middleware]."""
 
-from collections.abc import Callable
-from typing import Annotated, Any, NotRequired, cast
+from collections.abc import Awaitable, Callable
+from typing import Annotated, Any, NotRequired, Self, TypedDict, cast
 
-from langchain.agents.middleware import AgentMiddleware, AgentState
+from langchain.agents.middleware import AgentMiddleware, AgentState, ModelRequest, ModelResponse
 from langchain.chat_models import init_chat_model
+from langchain.tools.tool_node import ToolCallRequest
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, ToolMessage
+from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool
 from langgraph.config import get_config
+from langgraph.runtime import Runtime
+from langgraph.types import Command
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter
 
 from langchain_finic import Choice, DecisionRequest, FinicClassifier, FinicError, Noul
 from langchain_finic._state import normalize_state
-from langchain_finic.models import Probability, Text
+from langchain_finic.models import DecisionResponse, Probability, Text
 
 # Pure, synchronous selection hooks run identically in sync and async middleware.
 # The second argument is the application's runtime.context (or None).
@@ -42,42 +46,49 @@ class ModelChoice(BaseModel):
     criteria: Text
 
 
+class _ModelRoute(TypedDict):
+    selected: str
+    answer: dict[str, Any] | None
+    fallback_used: bool
+    assessment_failed: bool
+
+
 class ModelRouterState(AgentState):
-    finic_model_route: NotRequired[dict[str, Any]]
+    finic_model_route: NotRequired[_ModelRoute]
 
 
-def _config():
+def _config() -> RunnableConfig | None:
     try:
         return get_config()
     except RuntimeError:
         return None  # Direct hook calls outside a graph remain usable.
 
 
-class _ClassifierMiddleware(AgentMiddleware):
+class _ClassifierMiddleware(AgentMiddleware[AgentState, Any]):
     """Close only the classifier created by this middleware; borrowed ones stay open."""
 
-    def __init__(self, classifier: FinicClassifier | None):
+    def __init__(self, classifier: FinicClassifier | None) -> None:
         self.classifier = classifier if classifier is not None else FinicClassifier()
         self._owns_classifier = classifier is None
 
-    def close(self):
+    def close(self) -> None:
         if self._owns_classifier:
             self.classifier.close()
 
-    async def aclose(self):
+    async def aclose(self) -> None:
         if self._owns_classifier:
             await self.classifier.aclose()
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, *args: Any) -> None:
         self.close()
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> Self:
         return self
 
-    async def __aexit__(self, *args):
+    async def __aexit__(self, *args: Any) -> None:
         await self.aclose()
 
 
@@ -101,7 +112,7 @@ class ModelRouterMiddleware(_ClassifierMiddleware):
         fallback: str | None = None,
         context_builder: ContextBuilder | None = None,
         max_context_bytes: int = 60_000,
-    ):
+    ) -> None:
         self.context_builder = context_builder
         self.max_context_bytes = TypeAdapter(ContextLimit).validate_python(max_context_bytes)
         if context_builder is not None and not callable(context_builder):
@@ -122,7 +133,7 @@ class ModelRouterMiddleware(_ClassifierMiddleware):
         }
         super().__init__(classifier)
 
-    def _request(self, state, runtime=None):
+    def _request(self, state: AgentState, runtime: Runtime[Any] | None = None) -> DecisionRequest:
         message = next((m for m in reversed(state["messages"]) if isinstance(m, HumanMessage)), None)
         if message is None:
             raise ValueError("Model routing requires a human message")
@@ -142,7 +153,7 @@ class ModelRouterMiddleware(_ClassifierMiddleware):
             self.max_context_bytes,
         )
 
-    def _result(self, request, response):
+    def _result(self, request: DecisionRequest, response: DecisionResponse) -> dict[str, Any]:
         response.validate_for(request)
         answer = response.choices["model_route"]
         selected = answer.choice
@@ -160,7 +171,7 @@ class ModelRouterMiddleware(_ClassifierMiddleware):
             }
         }
 
-    def _failure(self):
+    def _failure(self) -> dict[str, Any] | None:
         if self.fallback is None:
             return None
         return {
@@ -172,7 +183,7 @@ class ModelRouterMiddleware(_ClassifierMiddleware):
             }
         }
 
-    def before_agent(self, state, runtime):
+    def before_agent(self, state: AgentState, runtime: Runtime[Any] | None) -> dict[str, Any]:
         if not any(isinstance(message, HumanMessage) for message in state["messages"]):
             raise ValueError("Model routing requires a human message")
         try:
@@ -184,7 +195,7 @@ class ModelRouterMiddleware(_ClassifierMiddleware):
                 raise
             return fallback
 
-    async def abefore_agent(self, state, runtime):
+    async def abefore_agent(self, state: AgentState, runtime: Runtime[Any] | None) -> dict[str, Any]:
         if not any(isinstance(message, HumanMessage) for message in state["messages"]):
             raise ValueError("Model routing requires a human message")
         try:
@@ -196,16 +207,20 @@ class ModelRouterMiddleware(_ClassifierMiddleware):
                 raise
             return fallback
 
-    def _model(self, state):
-        selected = state.get("finic_model_route", {}).get("selected")
+    def _model(self, state: AgentState) -> BaseChatModel:
+        selected = cast(str, cast(ModelRouterState, state).get("finic_model_route", {}).get("selected"))
         if selected not in self.models:
             raise ValueError("Missing or invalid model route; invoke the agent before calling its model")
         return self.models[selected]
 
-    def wrap_model_call(self, request, handler):
+    def wrap_model_call(
+        self, request: ModelRequest, handler: Callable[[ModelRequest], ModelResponse]
+    ) -> ModelResponse:
         return handler(request.override(model=self._model(request.state)))
 
-    async def awrap_model_call(self, request, handler):
+    async def awrap_model_call(
+        self, request: ModelRequest, handler: Callable[[ModelRequest], Awaitable[ModelResponse]]
+    ) -> ModelResponse:
         return await handler(request.override(model=self._model(request.state)))
 
 
@@ -230,7 +245,7 @@ class AutoModeMiddleware(_ClassifierMiddleware):
         criteria: dict[str, str] | None = None,
         context_builder: ContextBuilder | None = None,
         max_context_bytes: int = 60_000,
-    ):
+    ) -> None:
         self.context_builder = context_builder
         self.max_context_bytes = TypeAdapter(ContextLimit).validate_python(max_context_bytes)
         if context_builder is not None and not callable(context_builder):
@@ -257,7 +272,7 @@ class AutoModeMiddleware(_ClassifierMiddleware):
         self.question = Noul.model_validate({"instructions": instructions, "criteria": criteria})
         super().__init__(classifier)
 
-    def _request(self, request):
+    def _request(self, request: ToolCallRequest) -> DecisionRequest:
         data: dict[str, Any] = (
             {"messages": request.state.get("messages", [])}
             if self.context_builder is None
@@ -277,7 +292,9 @@ class AutoModeMiddleware(_ClassifierMiddleware):
             self.max_context_bytes,
         )
 
-    def _blocked(self, request, *, probability=None, failed=False):
+    def _blocked(
+        self, request: ToolCallRequest, *, probability: float | None = None, failed: bool = False
+    ) -> ToolMessage:
         return ToolMessage(
             content=(
                 "Tool call blocked: risk assessment unavailable."
@@ -290,7 +307,9 @@ class AutoModeMiddleware(_ClassifierMiddleware):
             artifact={"risk_probability": probability, "assessment_failed": failed},
         )
 
-    def wrap_tool_call(self, request, handler):
+    def wrap_tool_call(
+        self, request: ToolCallRequest, handler: Callable[[ToolCallRequest], ToolMessage | Command[Any]]
+    ) -> ToolMessage | Command[Any]:
         if request.tool_call["name"] not in self.protected_tools:
             return handler(request)
         try:
@@ -304,7 +323,11 @@ class AutoModeMiddleware(_ClassifierMiddleware):
             return self._blocked(request, probability=probability)
         return handler(request)
 
-    async def awrap_tool_call(self, request, handler):
+    async def awrap_tool_call(
+        self,
+        request: ToolCallRequest,
+        handler: Callable[[ToolCallRequest], Awaitable[ToolMessage | Command[Any]]],
+    ) -> ToolMessage | Command[Any]:
         if request.tool_call["name"] not in self.protected_tools:
             return await handler(request)
         try:

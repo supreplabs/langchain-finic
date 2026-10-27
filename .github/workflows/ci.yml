@@ -68,3 +68,5 @@ jobs:
           langchain-core==1.0.0 langchain==1.0.0 langgraph==1.0.0
           langgraph-prebuilt==1.0.0 pydantic==2.12.0 httpx==0.28.1 langsmith==0.3.45
       - run: /tmp/finic-min/bin/python -m pytest tests/unit_tests -q
+      - name: Check public types against minimum dependencies
+        run: uv run --locked --group lint mypy --python-executable /tmp/finic-min/bin/python
