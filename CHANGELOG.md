@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Require explicit scoring-tool opt-in for schema mutation/bypass; direct scoring flags remain available.
+- Preserve scoring-tool names and JSON output through bindings and configurable fields.
+- Apply scorer concurrency defaults to completion-order batches.
+
 - Record sanitized daily live-test evidence and add installed-package application validation.
 
 ## 0.1.0a6
