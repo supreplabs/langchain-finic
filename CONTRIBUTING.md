@@ -21,10 +21,13 @@ change independently of this package. Update it deliberately with the lockfile.
 
 `make integration_test` runs LangChain's official `ToolsIntegrationTests` against
 the live Finic API, plus our sync and async classifier smoke tests. With the pinned
-`langchain-tests` version, this runs seven tests and makes six paid API requests:
-four tool calls (sync and async, with and without a `ToolCall`) and two classifier
-calls. Each request gets one attempt, using synthetic evidence. The remaining test
-checks that the inherited standard tests have not been overridden.
+`langchain-tests` version, this runs thirteen tests and makes sixteen paid API requests:
+four standard tool calls, two classifier calls, four batch items, two LangGraph tool
+calls, and four middleware decisions. Sync and async paths are exercised. The direct,
+tool, batch, and graph requests cover all four question types. Middleware runs use
+scripted host chat models with live Finic routing and tool-risk decisions; no other
+provider key is needed. Each request gets one attempt, using synthetic evidence.
+One additional check verifies that inherited standard tests have not been overridden.
 
 Export `FINIC_API_KEY` before running the command; the Makefile sets
 `FINIC_LIVE_TESTS=1` and enables network access for this opt-in run. Direct pytest
@@ -40,7 +43,8 @@ release workflows also run it before building and publishing. Configure the
 repository secret `FINIC_API_KEY` to enable these runs. If it is absent, the live
 job is skipped with an explanation in the workflow summary; releases can proceed.
 If it is present, live test failures fail the workflow and block publishing.
-Each enabled run uses Python 3.12 and makes six API requests without retries.
+Each enabled run uses Python 3.12 and makes sixteen API requests without retries
+(approximately 480 requests per 30 daily runs, plus manual/release runs).
 
 Use `make format` for formatting and `uv lock` after dependency changes.
 Documentation lives in `docs/`; public API pages are generated from docstrings.
