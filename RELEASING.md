@@ -43,8 +43,9 @@ need no API credentials. Publishing jobs alone receive OIDC permission.
    (for example `## 0.1.0a7`). Run `uv lock` and commit the release.
 2. Run `make install` and `make check`. Confirm all compatibility CI jobs pass.
 3. Inspect wheel/sdist contents, generated documentation, and `scripts/check_dist.py`
-   hash output. No benchmark datasets, research code, credentials, or case artifacts
-   belong in this repository or its distributions.
+   hash output. Exclude customer datasets, private research artifacts, credentials,
+   and local case reports. The source distribution includes small, version-controlled
+   synthetic evaluation fixtures and their runner; the wheel contains only package code.
 4. Confirm both pending publishers are configured and the package name is still
    available to this maintainer. Create and push the matching version tag:
 
