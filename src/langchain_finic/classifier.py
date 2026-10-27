@@ -1,9 +1,14 @@
 """Native LangChain decision Runnable for the Grayson probability API."""
 
 import logging
-from typing import Any
+from typing import Any, cast
 
-from langchain_core.runnables import RunnableConfig, RunnableLambda
+from langchain_core.runnables import (
+    Runnable,
+    RunnableBinding,
+    RunnableConfig,
+    RunnableLambda,
+)
 from langchain_core.runnables.config import ensure_config
 from langchain_core.tools import BaseTool, StructuredTool
 from langsmith.run_helpers import get_current_run_tree
@@ -28,7 +33,66 @@ class _DecisionTool(StructuredTool):
         return super()._parse_input(tool_input, tool_call_id)
 
 
-class FinicClassifier(FinicRunnable[DecisionRequest, DecisionResponse]):
+def _decision_tool(
+    runnable: Runnable[DecisionRequest, DecisionResponse],
+    args_schema: type[BaseModel] | None = None,
+    *,
+    name: str | None = None,
+    description: str | None = None,
+    arg_types: dict[str, type] | None = None,
+) -> BaseTool:
+    # Standard conversion preserves callbacks, async support, and schema overrides.
+    # JSON output also produces valid ToolMessage content for chat-model agents.
+    chain = runnable | RunnableLambda(lambda result: result.model_dump(mode="json", exclude_none=True))
+    tool = chain.as_tool(
+        args_schema=args_schema,
+        name=name or "finic_decide",
+        arg_types=arg_types,
+        description=description or "Evaluate fraud and risk evidence; return typed probabilities.",
+    )
+
+    if (
+        (args_schema is None or args_schema is DecisionRequest)
+        and arg_types is None
+        and isinstance(tool, StructuredTool)
+    ):
+        return _DecisionTool(
+            name=tool.name,
+            description=tool.description,
+            args_schema=tool.args_schema,
+            func=tool.func,
+            coroutine=tool.coroutine,
+        )
+    return tool
+
+
+class _DecisionToolConversion:
+    def as_tool(
+        self,
+        args_schema: type[BaseModel] | None = None,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        arg_types: dict[str, type] | None = None,
+    ) -> BaseTool:
+        return _decision_tool(
+            cast(Runnable[DecisionRequest, DecisionResponse], self),
+            args_schema,
+            name=name,
+            description=description,
+            arg_types=arg_types,
+        )
+
+
+class _DecisionBinding(_DecisionToolConversion, RunnableBinding[DecisionRequest, DecisionResponse]):
+    """Keep decision tool conversion when configuration/kwargs are bound."""
+
+    @classmethod
+    def get_lc_namespace(cls) -> list[str]:
+        return ["langchain_finic", "classifier"]
+
+
+class FinicClassifier(_DecisionToolConversion, FinicRunnable[DecisionRequest, DecisionResponse]):
     """Typed decision model with LCEL, tools, batching and native asynchronous I/O.
 
     Credentials/options resolve explicit values, then FINIC_* environment defaults.
@@ -144,30 +208,8 @@ class FinicClassifier(FinicRunnable[DecisionRequest, DecisionResponse]):
             model=model,
         )
 
-    def as_tool(
-        self,
-        args_schema: type[BaseModel] | None = None,
-        *,
-        name: str | None = None,
-        description: str | None = None,
-        arg_types: dict[str, type] | None = None,
-    ) -> BaseTool:
-        # Standard conversion preserves callbacks, async support, and schema overrides.
-        # JSON output also produces valid ToolMessage content for chat-model agents.
-        chain = self | RunnableLambda(lambda result: result.model_dump(mode="json", exclude_none=True))
-        tool = chain.as_tool(
-            args_schema=args_schema,
-            name=name or "finic_decide",
-            arg_types=arg_types,
-            description=description or "Evaluate fraud and risk evidence; return typed probabilities.",
-        )
+    def with_config(self, config: RunnableConfig | None = None, **kwargs: Any):
+        return _DecisionBinding(bound=self, config=cast(RunnableConfig, {**(config or {}), **kwargs}))
 
-        if args_schema is None and arg_types is None and isinstance(tool, StructuredTool):
-            return _DecisionTool(
-                name=tool.name,
-                description=tool.description,
-                args_schema=tool.args_schema,
-                func=tool.func,
-                coroutine=tool.coroutine,
-            )
-        return tool
+    def bind(self, **kwargs: Any):
+        return _DecisionBinding(bound=self, kwargs=kwargs)

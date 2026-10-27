@@ -263,6 +263,11 @@ The current Finic API accepts `data` (JSON object, array, or nonblank text),
 normalized to JSON. Existing `state=` inputs and the `.state` accessor remain
 supported as compatibility aliases for `data`. Serialization and tool schemas
 use `data`; passing both `state` and `data` raises a validation error.
+Legacy `request.state = ...` and `request.model_copy(update={"state": ...})`
+update the canonical evidence after validation. Invalid legacy updates leave the
+original request unchanged. Default decision tools, explicit `DecisionRequest`
+tool schemas, and tools built after `bind()`/`with_config()` retain this input
+compatibility on the minimum supported LangChain version.
 
 Noul and MultiChoice base rates must be strictly between zero and one. Choice
 and Score rates may sum to one within 0.02; Choice rates are normalized to one.

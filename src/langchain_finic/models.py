@@ -1,7 +1,8 @@
 """Pydantic models for Finic Grayson's decision API."""
 
 import math
-from typing import Annotated, Literal, Self
+from collections.abc import Mapping
+from typing import Annotated, Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator, model_validator
 
@@ -105,6 +106,33 @@ class DecisionRequest(Model):
     def state(self):
         """Compatibility accessor; serialized requests use data."""
         return self.data
+
+    @state.setter
+    def state(self, value):
+        # Validate before assignment so invalid legacy updates leave evidence unchanged.
+        updated = type(self).model_validate(
+            {
+                **self.model_dump(exclude={"data"}),
+                "state": value,
+            }
+        )
+        self.data = updated.data
+        self.__pydantic_fields_set__.add("data")
+
+    def model_copy(self, *, update: Mapping[str, Any] | None = None, deep: bool = False) -> Self:
+        """Map legacy updates to data while preserving normal Pydantic copy semantics."""
+        if update is not None and "state" in update:
+            if "data" in update:
+                raise ValueError("Pass data or legacy state, not both")
+            if update["state"] is None:
+                raise ValueError("Legacy state cannot be null")
+            mapped = dict(update)
+            mapped["data"] = mapped.pop("state")
+            # Pydantic copies normally trust updates; validate the legacy evidence
+            # before it becomes the canonical field instead of silently ignoring it.
+            validated = type(self).model_validate({**self.model_dump(), **mapped})
+            update = {**mapped, "data": validated.data}
+        return super().model_copy(update=update, deep=deep)
 
     @field_validator("data", mode="before")
     @classmethod
