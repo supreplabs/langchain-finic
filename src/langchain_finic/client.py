@@ -1,4 +1,4 @@
-"""HTTP transport for the Finic decision API."""
+"""HTTP transport for Finic decisions, custom scoring, and model lifecycle APIs."""
 
 import asyncio
 import math
@@ -247,7 +247,7 @@ class FinicClient:
                 if last:
                     raise FinicError(
                         "Finic transport failed; write outcome may be unknown"
-                        if not retry
+                        if method == "POST" and not retry
                         else "Finic unreachable after bounded retries"
                     ) from None
             else:
@@ -281,7 +281,7 @@ class FinicClient:
                 if last:
                     raise FinicError(
                         "Finic transport failed; write outcome may be unknown"
-                        if not retry
+                        if method == "POST" and not retry
                         else "Finic unreachable after bounded retries"
                     ) from None
             else:
