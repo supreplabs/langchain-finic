@@ -8,6 +8,7 @@ nav:
   - Getting started: index.md
   - Usage and configuration: usage.md
   - Compatibility and support: compatibility.md
+  - Custom scoring: scoring.md
   - API reference: api.md
 plugins:
   - search

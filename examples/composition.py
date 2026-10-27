@@ -18,7 +18,7 @@ class State(TypedDict):
 
 def main():
     request = DecisionRequest(
-        state={"events": ["Fictional account changed device before a new payment"]},
+        data={"events": ["Fictional account changed device before a new payment"]},
         questions={
             "route": Choice(
                 instructions="Choose a review queue.",

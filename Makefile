@@ -1,10 +1,12 @@
-.PHONY: install test integration_test lint format type_check docs build check
+.PHONY: install test integration_test lifecycle_test lint format type_check docs build check
 install:
 	uv sync --locked --group dev --extra middleware
 test:
 	uv run --locked --group test pytest tests/unit_tests -q
 integration_test:
 	FINIC_LIVE_TESTS=1 uv run --locked --group test pytest -o addopts= tests/integration_tests -m live -q
+lifecycle_test:
+	uv run --locked --group test pytest -o addopts= tests/integration_tests -m lifecycle -q
 lint:
 	uv run --locked --group lint ruff check src tests examples scripts
 	uv run --locked --group lint ruff format --check src tests examples scripts
