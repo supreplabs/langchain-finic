@@ -18,7 +18,7 @@ Prefer these imports when building applications:
 | `langchain_finic` | `ScoreModel`, `ListScoresResponse`, `JobStatus`, `JobFailure` |
 | `langchain_finic` | `Noul`, `Choice`, `MultiChoice`, `Score` |
 | `langchain_finic` | `NoulAnswer`, `ChoiceAnswer`, `MultiChoiceAnswer`, `ScoreAnswer` |
-| `langchain_finic.middleware` | `ModelChoice`, `ModelRouterMiddleware`, `AutoModeMiddleware`, `ModelRouterState` |
+| `langchain_finic.middleware` | `ModelChoice`, `ModelRouterMiddleware`, `AutoModeMiddleware`, `ModelRouterState`, `ContextBuilder` |
 
 Middleware requires the `middleware` extra. `Noul` and `Score` are aliases whose
 underlying schema names appear in the API reference. Public import aliases and
