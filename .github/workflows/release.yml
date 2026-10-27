@@ -12,6 +12,10 @@ jobs:
   checks:
     uses: ./.github/workflows/ci.yml
   live-tests:
+    permissions:
+      contents: read
+      actions: read
+      issues: write
     uses: ./.github/workflows/integration.yml
     secrets:
       FINIC_API_KEY: ${{ secrets.FINIC_API_KEY }}
