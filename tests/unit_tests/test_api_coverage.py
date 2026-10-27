@@ -80,3 +80,28 @@ def test_description_boundary():
     assert len(CreateScoreRequest(data=rows, description="x" * 4000).description) == 4000
     with pytest.raises(ValidationError):
         CreateScoreRequest(data=rows, description="x" * 4001)
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_poll_transport_failure_does_not_imply_unknown_write(asynchronous):
+    calls = []
+
+    def handle(request):
+        calls.append(request)
+        raise httpx.ReadTimeout("connection lost", request=request)
+
+    transport = httpx.MockTransport(handle)
+    client = FinicClient("test", transport=transport, async_transport=transport)
+    with pytest.raises(FinicError) as exc:
+        if asynchronous:
+
+            async def run():
+                async with client:
+                    await client.await_job("job")
+
+            asyncio.run(run())
+        else:
+            with client:
+                client.wait_for_job("job")
+    assert len(calls) == 1
+    assert "write" not in str(exc.value)
