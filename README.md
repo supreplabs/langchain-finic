@@ -24,7 +24,7 @@ for the public API, tested environments, and versioning commitments.
 Python 3.11 or newer and a Finic API key are required.
 
 ```bash
-pip install langchain-finic==0.1.0a5
+pip install langchain-finic==0.1.0a6
 export FINIC_API_KEY=your_key
 ```
 
@@ -78,7 +78,7 @@ flowchart LR
 For middleware, install the extra and the provider packages for your host chat models:
 
 ```bash
-pip install 'langchain-finic[middleware]==0.1.0a5'
+pip install 'langchain-finic[middleware]==0.1.0a6'
 ```
 
 ## Contributing

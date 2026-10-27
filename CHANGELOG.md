@@ -2,19 +2,32 @@
 
 ## Unreleased
 
-- Keep lifecycle validation active under optimized Python and persist pending score IDs before writes.
+## 0.1.0a6
 
-- Add a six-endpoint coverage matrix and separately opted-in synthetic lifecycle validation.
-
-- Add FinicScorer, selected lifecycle tools, and checkpointed composition examples.
+- Add typed sync/async clients for custom scoring, model creation, model listing,
+  calibration, and job status, covering all six documented Finic REST endpoints.
+- Add `FinicScorer`, explicitly selected lifecycle tools through `FinicToolkit`,
+  and checkpointed LangGraph composition examples.
+- Use single-attempt scoring/creation/calibration writes and explicit bounded job
+  polling; retain caller-assigned score IDs for reconciliation.
+- Align decisions with documented `data`/`context` inputs, base-rate boundaries,
+  and structured provider errors. Existing `state` inputs remain supported;
+  serialized requests now use canonical `data`.
+- Preserve legacy state assignment/copy updates and configured or bound decision
+  tool conversion, including minimum supported LangChain dependencies.
 - Accept documented text outcome labels in JSON and CSV without rewriting inputs.
+- Expand opt-in live decision coverage to all question types, bounded batches,
+  LangGraph tools, middleware, and data/context inputs (15 checks / 18 requests).
+- Add isolated synthetic model lifecycle validation, retain pending score IDs
+  before writes, and keep validation active under optimized Python.
+- Strengthen offline failure, cancellation, ownership, and partial-batch coverage;
+  document compatibility, maintenance, and release-promotion policies.
+- Retry exact-version PyPI installation verification with fresh index metadata
+  and a finite budget, preserving immutable artifacts and registry hash checks.
 
-- Add typed sync/async custom scoring, creation, discovery, calibration, and job APIs.
-- Use conservative write retries and explicit bounded job polling.
-- Preserve legacy state updates and configured/bound decision-tool conversion.
-
-- Align decisions with Finic data/context inputs, retaining state as a compatibility alias.
-- Match documented base-rate boundaries and expose structured provider error identifiers.
+The package remains alpha. Model creation and calibration are explicit remote
+writes; the separate lifecycle test does not run in ordinary CI. Test coverage
+validates API and framework behavior, not fraud-detection accuracy.
 
 ## 0.1.0a5
 
