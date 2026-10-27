@@ -14,6 +14,7 @@ from langchain_finic.models import (
     Score,
     ScoreAnswer,
 )
+from langchain_finic.scorer import FinicScorer
 from langchain_finic.scoring_models import (
     CalibrationRequest,
     CalibrationResponse,
@@ -27,8 +28,11 @@ from langchain_finic.scoring_models import (
     ScoringRequest,
     ScoringResponse,
 )
+from langchain_finic.toolkit import FinicToolkit
 
 __all__ = [
+    "FinicScorer",
+    "FinicToolkit",
     "ScoringInput",
     "ScoringRequest",
     "ScoringResponse",

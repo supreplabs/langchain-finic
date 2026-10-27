@@ -87,3 +87,7 @@ Default tests run offline with mock providers. Report bugs through
 through [private security reporting](SECURITY.md).
 
 Released under the [MIT license](LICENSE). See the [changelog](CHANGELOG.md) for version history.
+
+Custom models are available through `FinicScorer` and `FinicToolkit`. See the
+[custom scoring guide](docs/scoring.md) for native LangChain composition,
+model lifecycle operations, retry behavior, and examples.

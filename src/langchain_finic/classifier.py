@@ -1,19 +1,16 @@
 """Native LangChain decision Runnable for the Grayson probability API."""
 
 import logging
-from typing import Any, Self
+from typing import Any
 
-import httpx
-from langchain_core.load.serializable import to_json_not_implemented
-from langchain_core.runnables import RunnableConfig, RunnableLambda, RunnableSerializable
+from langchain_core.runnables import RunnableConfig, RunnableLambda
 from langchain_core.runnables.config import ensure_config
 from langchain_core.tools import BaseTool, StructuredTool
 from langsmith.run_helpers import get_current_run_tree
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, SecretStr, model_validator
-from pydantic.json_schema import SkipJsonSchema
+from pydantic import BaseModel, Field
 
 from langchain_finic._config import env_option
-from langchain_finic.client import FinicClient
+from langchain_finic._runnable import FinicRunnable
 from langchain_finic.models import DecisionRequest, DecisionResponse, ModelName
 
 logger = logging.getLogger(__name__)
@@ -31,7 +28,7 @@ class _DecisionTool(StructuredTool):
         return super()._parse_input(tool_input, tool_call_id)
 
 
-class FinicClassifier(RunnableSerializable[DecisionRequest, DecisionResponse]):
+class FinicClassifier(FinicRunnable[DecisionRequest, DecisionResponse]):
     """Typed decision model with LCEL, tools, batching and native asynchronous I/O.
 
     Credentials/options resolve explicit values, then FINIC_* environment defaults.
@@ -41,93 +38,15 @@ class FinicClassifier(RunnableSerializable[DecisionRequest, DecisionResponse]):
     decision, not token deltas.
     """
 
-    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid", hide_input_in_errors=True)
     model: ModelName = Field(default_factory=lambda: env_option("MODEL", "grayson-1"), validate_default=True)
-    api_key: SecretStr | None = Field(default=None, exclude=True, repr=False)
-    timeout: float | None = Field(default=None, gt=30, le=180)
-    max_attempts: int | None = Field(default=None, ge=1, le=5)
-    client: SkipJsonSchema[FinicClient | None] = Field(default=None, exclude=True, repr=False)
-    http_client: SkipJsonSchema[httpx.Client | None] = Field(default=None, exclude=True, repr=False)
-    http_async_client: SkipJsonSchema[httpx.AsyncClient | None] = Field(
-        default=None, exclude=True, repr=False
-    )
-    transport: SkipJsonSchema[httpx.BaseTransport | None] = Field(default=None, exclude=True, repr=False)
-    async_transport: SkipJsonSchema[httpx.AsyncBaseTransport | None] = Field(
-        default=None, exclude=True, repr=False
-    )
-    _runtime_client: FinicClient = PrivateAttr()
-    _closed: bool = PrivateAttr(default=False)
-    _pool_connections: bool = PrivateAttr(default=False)
-
-    @model_validator(mode="after")
-    def configure_client(self) -> Self:
-        if self.client is not None:
-            if any(
-                value is not None
-                for value in (
-                    self.api_key,
-                    self.timeout,
-                    self.max_attempts,
-                    self.http_client,
-                    self.http_async_client,
-                    self.transport,
-                    self.async_transport,
-                )
-            ):
-                raise ValueError("Pass either client or client options")
-            self._runtime_client = self.client
-        else:
-            self._runtime_client = self._new_client()
-            self.api_key = self._runtime_client.config.api_key
-            self.timeout = self._runtime_client.config.timeout
-            self.max_attempts = self._runtime_client.config.max_attempts
-        return self
-
-    def _new_client(self) -> FinicClient:
-        return FinicClient(
-            api_key=self.api_key,
-            timeout=self.timeout,
-            max_attempts=self.max_attempts,
-            http_client=self.http_client,
-            http_async_client=self.http_async_client,
-            transport=self.transport,
-            async_transport=self.async_transport,
-        )
-
-    @property
-    def _client(self) -> FinicClient:
-        return self._runtime_client
-
-    @classmethod
-    def is_lc_serializable(cls) -> bool:
-        return True
 
     @classmethod
     def get_lc_namespace(cls) -> list[str]:
         return ["langchain_finic", "classifier"]
 
     @property
-    def lc_secrets(self) -> dict[str, str]:
-        return {"api_key": "FINIC_API_KEY"}
-
-    @property
     def lc_attributes(self) -> dict[str, Any]:
         return {"model": self.model}
-
-    def to_json(self):
-        # Recreating borrowed clients/transports from JSON would silently change behavior.
-        if any(
-            value is not None
-            for value in (
-                self.client,
-                self.http_client,
-                self.http_async_client,
-                self.transport,
-                self.async_transport,
-            )
-        ):
-            return to_json_not_implemented(self)
-        return super().to_json()
 
     def _request(self, value: DecisionRequest | dict, model: str | None) -> DecisionRequest:
         if self._closed:
@@ -252,28 +171,3 @@ class FinicClassifier(RunnableSerializable[DecisionRequest, DecisionResponse]):
                 coroutine=tool.coroutine,
             )
         return tool
-
-    def close(self) -> None:
-        if self.client is None:
-            self._client.close()
-        self._closed = True
-
-    async def aclose(self) -> None:
-        if self.client is None:
-            await self._client.aclose()
-        self._closed = True
-
-    def __enter__(self):
-        if self._closed:
-            raise RuntimeError("FinicClassifier is closed")
-        self._pool_connections = True
-        return self
-
-    def __exit__(self, *args):
-        self.close()
-
-    async def __aenter__(self):
-        return self.__enter__()
-
-    async def __aexit__(self, *args):
-        await self.aclose()

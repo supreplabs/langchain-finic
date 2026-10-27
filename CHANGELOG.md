@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add FinicScorer, selected lifecycle tools, and checkpointed composition examples.
+
 - Add typed sync/async custom scoring, creation, discovery, calibration, and job APIs.
 - Use conservative write retries and explicit bounded job polling.
 
