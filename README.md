@@ -9,7 +9,7 @@
 [![MIT license](https://img.shields.io/github/license/supreplabs/langchain-finic)](https://github.com/supreplabs/langchain-finic/blob/main/LICENSE)
 
 [Documentation](https://supreplabs.github.io/langchain-finic/) ·
-[Quickstart](#quickstart) · [Examples](#examples) ·
+[Quickstart](#quickstart) · [Examples](#langchain-and-langgraph-examples) ·
 [API reference](https://supreplabs.github.io/langchain-finic/api/) ·
 [Releases](https://github.com/supreplabs/langchain-finic/releases)
 
