@@ -1,11 +1,18 @@
-site_name: langchain-finic
+site_name: Finic Grayson for LangChain and LangGraph | langchain-finic
+site_description: Python integration for Finic Grayson decisions, custom scoring, LangChain tools, and LangGraph workflows.
 site_url: https://supreplabs.github.io/langchain-finic/
 repo_url: https://github.com/supreplabs/langchain-finic
 repo_name: supreplabs/langchain-finic
 theme:
   name: mkdocs
+  custom_dir: theme
+markdown_extensions:
+  - meta
 nav:
   - Getting started: index.md
+  - Tutorials:
+      - Finic decisions with LangChain: tutorials/langchain-decisions.md
+      - LangGraph fraud review: tutorials/langgraph-review.md
   - Usage and configuration: usage.md
   - Compatibility and support: compatibility.md
   - Custom scoring: scoring.md

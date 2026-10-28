@@ -1,3 +1,7 @@
+---
+description: Plan calibration, fallbacks, and latency budgets for Finic Grayson decision workflows.
+---
+
 # Calibration and latency budgets
 
 Treat a decision's probability, calibration state, and operating threshold as

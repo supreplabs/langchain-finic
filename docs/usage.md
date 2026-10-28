@@ -1,3 +1,7 @@
+---
+description: Configure and use Finic Grayson decisions, LangChain tools, LangGraph workflows, and middleware.
+---
+
 # Usage and configuration
 
 The examples below use fictional evidence and require `FINIC_API_KEY` in the

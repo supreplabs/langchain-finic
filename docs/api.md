@@ -1,3 +1,7 @@
+---
+description: API reference for Finic decision, scoring, and middleware integrations in Python.
+---
+
 # API reference
 
 ## Classifier
