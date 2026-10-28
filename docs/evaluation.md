@@ -1,3 +1,7 @@
+---
+description: Evaluate Finic-assisted model routing and tool screening with synthetic cases and understand the limitations.
+---
+
 # Evaluating routing and tool screening
 
 `scripts/system1_eval.py` evaluates the package's actual middleware hooks against

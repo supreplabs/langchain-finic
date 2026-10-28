@@ -1,4 +1,8 @@
-# Finic for LangChain
+---
+description: Get started using Finic Grayson decision and scoring APIs with Python, LangChain, and LangGraph.
+---
+
+# Finic Grayson for LangChain and LangGraph
 
 `langchain-finic` connects Finic Grayson's typed decisions to LangChain and
 LangGraph. It is an independent, MIT-licensed Python integration maintained by
@@ -54,6 +58,10 @@ Use a separate chat-provider model for chat generation and agent orchestration.
 Continue with the [usage guide](usage.md) for complete composition examples,
 configuration, retries, client ownership, and data handling. The [API reference](api.md)
 describes the public types and methods.
+
+Try the [LangChain decision tutorial](tutorials/langchain-decisions.md) or the
+[LangGraph fraud-review tutorial](tutorials/langgraph-review.md) for complete
+examples using fictional evidence.
 
 ## Development and support
 

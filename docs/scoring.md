@@ -1,3 +1,7 @@
+---
+description: Use Finic custom scoring models with LangChain and manage their lifecycle in Python.
+---
+
 # Custom scores and model lifecycle
 
 `FinicClient` supports all six documented Finic REST operations. `Score` remains

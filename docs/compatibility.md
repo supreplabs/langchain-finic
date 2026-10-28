@@ -1,3 +1,7 @@
+---
+description: Compatibility, support, and versioning policy for the langchain-finic Python integration.
+---
+
 # Compatibility and support
 
 The published package is currently alpha. This policy identifies the supported

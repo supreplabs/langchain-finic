@@ -37,6 +37,7 @@ def main():
         "tests",
         "examples",
         "docs",
+        "theme",
         "scripts",
         "pyproject.toml",
         "README.md",
@@ -66,6 +67,7 @@ def main():
             names.append(str(Path(*path.parts[1:])))
         assert "LICENSE" in names and "src/langchain_finic/py.typed" in names
         assert "tests/unit_tests/test_standard.py" in names
+        assert "theme/main.html" in names
     print(json.dumps({p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}, indent=2))
 
 
