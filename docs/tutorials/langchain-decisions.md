@@ -16,7 +16,7 @@ and consume API credits; retries may create additional requests. The library doe
 not automatically load `.env` files.
 
 ```bash
-pip install langchain-finic==0.1.0a7
+pip install langchain-finic==0.1.0a8
 export FINIC_API_KEY=your_key
 ```
 

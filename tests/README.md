@@ -181,9 +181,9 @@ checkout using a new evidence path. Export `FINIC_API_KEY` separately:
 
 ```bash
 uv venv /tmp/finic-apps
-uv pip install --python /tmp/finic-apps/bin/python 'langchain-finic[middleware]==0.1.0a7'
+uv pip install --python /tmp/finic-apps/bin/python 'langchain-finic[middleware]==0.1.0a8'
 cd /tmp
-FINIC_APPLICATION_TESTS=1 /tmp/finic-apps/bin/python /path/to/langchain-finic/scripts/validate_applications.py --output /tmp/finic-apps-new.json --version 0.1.0a7
+FINIC_APPLICATION_TESTS=1 /tmp/finic-apps/bin/python /path/to/langchain-finic/scripts/validate_applications.py --output /tmp/finic-apps-new.json --version 0.1.0a8
 ```
 
 The runner rejects checkout imports, unexpected package versions, existing evidence
