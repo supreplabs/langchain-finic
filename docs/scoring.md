@@ -21,8 +21,9 @@ def score_payment(model_id: str, score_id: str):
         ))
 ```
 
-`score`/`ascore` return an integer from 0 to 1000. The client checks both model
-and record identity in the response. `skip_schema_validation` and `update_schema`
+`score`/`ascore` return a `ScoringResponse` whose `score` field is an integer from
+0 to 1000. The client checks both model and record identity in the response.
+`skip_schema_validation` and `update_schema`
 are explicit flags: the latter changes the remote model's schema. Default
 validation against the stored schema remains Finic's responsibility.
 

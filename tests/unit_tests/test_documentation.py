@@ -10,7 +10,7 @@ import pytest
 from langchain_core.language_models.fake_chat_models import FakeMessagesListChatModel
 from langchain_core.messages import AIMessage
 
-from langchain_finic import FinicClassifier
+from langchain_finic import DecisionRequest, FinicClassifier, Noul
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -99,6 +99,35 @@ def test_documented_python_examples(page, offline_docs):
 def test_documented_graph_example(offline_docs):
     runpy.run_path(str(ROOT / "examples/composition.py"), run_name="__main__")
     assert len(offline_docs) == 2
+
+
+@pytest.mark.parametrize("request_model", [None, "fictional-request-model"])
+def test_documented_native_tool_arguments_keep_tags_and_model_precedence(request_model, offline_docs):
+    blocks = re.findall(r"```python\n(.*?)\n```", (ROOT / "docs/usage.md").read_text(), re.DOTALL)
+    block = next(block for block in blocks if "def invoke_decision_tool(" in block)
+    namespace = {}
+    exec(compile(block, "docs/usage.md:native-tool-arguments", "exec"), namespace)
+    fields = {} if request_model is None else {"model": request_model}
+    request = DecisionRequest(
+        data={"ticket": "Fictional support question"},
+        questions={"urgent": Noul(instructions="Urgent review?")},
+        **fields,
+    )
+    with FinicClassifier(model="fictional-configured-model") as classifier:
+        result = namespace["invoke_decision_tool"](classifier, request)
+    assert result["answers"]["urgent"]["noul"] == 0.1
+    assert offline_docs[-1]["questions"]["urgent"]["type"] == "noul"
+    assert offline_docs[-1]["model"] == (request_model or "fictional-configured-model")
+
+
+def test_documented_offline_application_recipe():
+    namespace = {"__name__": "documentation_example"}
+    blocks = re.findall(r"```python\n(.*?)\n```", (ROOT / "docs/testing.md").read_text(), re.DOTALL)
+    assert blocks
+    for block in blocks:
+        exec(compile(block, "docs/testing.md:offline-recipe", "exec"), namespace)
+    assert len(namespace["fixture_calls"]) == 1
+    assert namespace["result"].nouls["urgent"].noul == 0.1
 
 
 def test_relative_documentation_links_resolve():
