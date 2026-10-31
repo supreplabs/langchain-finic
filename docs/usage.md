@@ -148,6 +148,30 @@ The tool returned by `.as_tool()` also works in LangGraph `ToolNode` and in
 `create_agent`. It converts the decision to JSON-compatible output and preserves
 the tool-call ID when returning a `ToolMessage`.
 
+### Building native tool arguments from a typed request
+
+`classifier.invoke(request)` accepts a `DecisionRequest` directly. When calling
+the native tool programmatically, pass a dictionary that retains each question's
+`type` discriminator. `model_dump(exclude_unset=True)` removes those default tags
+from typed questions and can produce a `union_tag_not_found` validation error.
+
+This application helper preserves the tags and leaves model selection with the
+classifier when the request did not explicitly select a model:
+
+```python
+from langchain_finic import DecisionRequest, FinicClassifier
+
+
+def invoke_decision_tool(classifier: FinicClassifier, request: DecisionRequest):
+    arguments = request.model_dump(mode="json")
+    if "model" not in request.model_fields_set:
+        arguments.pop("model", None)
+    return classifier.as_tool().invoke(arguments)
+```
+
+For credential-free application checks, see the complete
+[offline transport example](testing.md).
+
 ## Tool-calling agents
 
 A host chat model decides when to call the Finic tool. Install its provider package

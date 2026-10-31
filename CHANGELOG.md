@@ -4,6 +4,8 @@
 
 - Preserve configured, bound and configurable decision models when native tool
   arguments omit `model`; retain explicit request-model overrides.
+- Document typed decision-tool argument conversion and credential-free application
+  testing, and clarify the structured return type of custom scoring calls.
 
 ## 0.1.0a7
 
