@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.0a8
+
 - Preserve configured, bound and configurable decision models when native tool
   arguments omit `model`; retain explicit request-model overrides.
 - Document typed decision-tool argument conversion and credential-free application

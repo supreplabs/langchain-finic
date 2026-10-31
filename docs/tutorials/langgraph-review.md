@@ -17,7 +17,7 @@ Running the graph sends the fictional evidence to Finic and consumes API credits
 Retries may create additional requests.
 
 ```bash
-pip install langchain-finic==0.1.0a7 'langgraph>=1,<2'
+pip install langchain-finic==0.1.0a8 'langgraph>=1,<2'
 export FINIC_API_KEY=your_key
 ```
 

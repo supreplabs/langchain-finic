@@ -1,6 +1,6 @@
 [project]
 name = "langchain-finic"
-version = "0.1.0a7"
+version = "0.1.0a8"
 description = "Finic Grayson decision and scoring integration for Python, LangChain, and LangGraph."
 readme = "README.md"
 requires-python = ">=3.11"
