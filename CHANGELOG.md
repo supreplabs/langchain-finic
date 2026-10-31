@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Preserve configured, bound and configurable decision models when native tool
+  arguments omit `model`; retain explicit request-model overrides.
+
 ## 0.1.0a7
 
 - Add a versioned synthetic System 1 evaluation corpus and bounded opt-in runner,

@@ -7,8 +7,10 @@ from langchain_core.runnables import (
     Runnable,
     RunnableConfig,
     RunnableLambda,
+    RunnableSerializable,
 )
 from langchain_core.runnables.config import ensure_config
+from langchain_core.runnables.utils import AnyConfigurableField
 from langchain_core.tools import BaseTool, StructuredTool
 from langsmith.run_helpers import get_current_run_tree
 from pydantic import BaseModel, Field
@@ -22,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 class _DecisionTool(StructuredTool):
-    """Normalize the legacy envelope before older LangChain filters parsed fields."""
+    """Preserve legacy evidence and model precedence through tool parsing."""
 
     def _parse_input(
         self, tool_input: str | dict[str, Any], tool_call_id: str | None
@@ -32,7 +34,12 @@ class _DecisionTool(StructuredTool):
             DecisionRequest.model_validate(tool_input)
             tool_input = dict(tool_input)
             tool_input["data"] = tool_input.pop("state")
-        return super()._parse_input(tool_input, tool_call_id)
+        parsed = super()._parse_input(tool_input, tool_call_id)
+        if isinstance(tool_input, dict) and "model" not in tool_input and isinstance(parsed, dict):
+            # Newer LangChain parsers insert schema defaults. An omitted request
+            # model must still resolve through the configured or bound runnable.
+            parsed.pop("model", None)
+        return parsed
 
 
 def _decision_tool(
@@ -92,6 +99,10 @@ class _DecisionBinding(_DecisionToolConversion, FinicBinding[DecisionRequest, De
     @classmethod
     def get_lc_namespace(cls) -> list[str]:
         return ["langchain_finic", "classifier"]
+
+    def configurable_fields(self, **kwargs: AnyConfigurableField) -> "_DecisionBinding":
+        bound = cast(RunnableSerializable[DecisionRequest, DecisionResponse], self.bound)
+        return self.model_copy(update={"bound": bound.configurable_fields(**kwargs)})
 
 
 class FinicClassifier(_DecisionToolConversion, FinicRunnable[DecisionRequest, DecisionResponse]):
@@ -215,3 +226,6 @@ class FinicClassifier(_DecisionToolConversion, FinicRunnable[DecisionRequest, De
 
     def bind(self, **kwargs: Any) -> _DecisionBinding:
         return _DecisionBinding(bound=self, kwargs=kwargs)
+
+    def configurable_fields(self, **kwargs: AnyConfigurableField) -> _DecisionBinding:
+        return _DecisionBinding(bound=super().configurable_fields(**kwargs))
