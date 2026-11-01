@@ -42,7 +42,7 @@ def report(token, today):
     start = end - timedelta(days=27)
     site = quote(SITE, safe="")
     lines = [
-        "## Weekly search visibility",
+        "## Daily search visibility",
         "",
         f"Search Analytics window: {start.isoformat()} to {end.isoformat()} (28 days; Web search).",
         "Figures are aggregate and may be delayed or incomplete.",

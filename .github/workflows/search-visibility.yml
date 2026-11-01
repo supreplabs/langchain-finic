@@ -1,7 +1,7 @@
 name: Search visibility
 on:
   schedule:
-    - cron: '23 5 * * 1'
+    - cron: '23 5 * * *'
   workflow_dispatch:
 permissions:
   contents: read
