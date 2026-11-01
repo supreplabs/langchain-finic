@@ -3,6 +3,7 @@ site_description: Python integration for Finic Grayson decisions, custom scoring
 site_url: https://supreplabs.github.io/langchain-finic/
 repo_url: https://github.com/supreplabs/langchain-finic
 repo_name: supreplabs/langchain-finic
+edit_uri: edit/main/docs/
 theme:
   name: mkdocs
   custom_dir: theme
