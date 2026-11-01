@@ -1,8 +1,8 @@
 # Search visibility monitoring
 
 The [tracking issue](https://github.com/supreplabs/langchain-finic/issues/56)
-contains the baseline and weekly observations. The Search visibility workflow runs
-at 05:23 UTC on Mondays and can also be started with `workflow_dispatch`. Its
+contains the baseline and daily observations. The Search visibility workflow runs
+at 05:23 UTC daily and can also be started with `workflow_dispatch`. Its
 comments are public: it posts aggregate clicks and impressions, sitemap metadata,
 and index status for the homepage and tutorial, never raw queries or credentials.
 
