@@ -39,6 +39,8 @@ argument selects the separate host chat model.
 Clone the [repository](https://github.com/supreplabs/langchain-finic), then run:
 
 ```bash
+git clone https://github.com/supreplabs/langchain-finic.git
+cd langchain-finic
 python examples/finic_host_review.py openai:YOUR_AVAILABLE_MODEL
 ```
 
@@ -55,6 +57,53 @@ The graph's nodes have separate responsibilities:
 3. **Draft a note:** the host chat model receives the evidence, probability, and
    queue, and drafts a note. The prompt asks it to treat the case as data and
    avoid claiming that fraud is confirmed.
+
+## Follow the decision through the graph
+
+The example starts with fictional customer context: a 760-day-old account, a new
+device, and a payment to an unfamiliar recipient. These are the only case facts
+provided to the models. A real review might require more context, such as the
+customer's usual devices, prior recipients, and transaction history; include
+only information appropriate for the providers and the review purpose.
+
+The `assess` node builds a `DecisionRequest` and asks Grayson a typed `Noul`
+question. The response probability and request ID become graph state:
+
+```python
+decision = classifier.invoke(
+    DecisionRequest(
+        data=state["evidence"],
+        questions={"takeover": Noul(instructions="Does the evidence suggest account takeover?")},
+    ),
+    config=config,
+)
+return {"probability": decision.nouls["takeover"].noul, "request_id": decision.request_id}
+```
+
+The next node compares the probability with an **illustrative** threshold and
+stores a queue. For example, a probability of `0.8` would select `urgent`; a
+probability of `0.4` would select `standard`. These are examples of the rule,
+not expected model outputs or validated fraud probabilities.
+
+```python
+queue = "urgent" if state["probability"] >= 0.7 else "standard"
+return {"queue": queue}
+```
+
+Finally, `draft_note` sends the evidence, probability, and queue to the separate
+chat model. The graph connects the three nodes in order:
+
+```python
+builder.add_edge(START, "assess")
+builder.add_edge("assess", "choose_queue")
+builder.add_edge("choose_queue", "draft_note")
+builder.add_edge("draft_note", END)
+```
+
+The request ID can help correlate the Finic response with a review record; follow
+your organization's data retention and access policies when storing it. The
+queue is a recommendation for analyst attention, not a payment block or a fraud
+finding.
 
 The system prompt is not a security boundary. Host-model output can be inaccurate
 or manipulated by case content. Applications should validate outputs, apply
