@@ -13,6 +13,7 @@ nav:
   - Tutorials:
       - Finic decisions with LangChain: tutorials/langchain-decisions.md
       - LangGraph fraud review: tutorials/langgraph-review.md
+      - Finic and a chat model with LangGraph: tutorials/finic-langgraph-host-model.md
   - Usage and configuration: usage.md
   - Testing applications offline: testing.md
   - Compatibility and support: compatibility.md

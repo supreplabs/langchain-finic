@@ -98,6 +98,7 @@ flowchart LR
 - [LCEL and LangGraph](https://github.com/supreplabs/langchain-finic/blob/main/examples/composition.py): compose a classifier and a typed graph node.
 - [Finic decisions with LangChain](https://supreplabs.github.io/langchain-finic/tutorials/langchain-decisions/): use a decision in an LCEL chain.
 - [LangGraph fraud review](https://supreplabs.github.io/langchain-finic/tutorials/langgraph-review/): route a fictional case through a graph.
+- [Finic and a chat model with LangGraph](https://supreplabs.github.io/langchain-finic/tutorials/finic-langgraph-host-model/): route fictional payment evidence and draft an analyst note.
 - [Agent middleware](https://github.com/supreplabs/langchain-finic/blob/main/examples/middleware_agent.py): route between host chat models and screen tool calls.
 - [Custom scoring](https://supreplabs.github.io/langchain-finic/scoring/): use a scorer as a Runnable or tool, and manage score model lifecycle operations.
 - [System 1 evaluation](https://supreplabs.github.io/langchain-finic/evaluation/): reproduce a small synthetic evaluation of routing and tool screening, including its limitations.
