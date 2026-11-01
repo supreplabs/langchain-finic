@@ -7,9 +7,10 @@ under `/langchain-finic/` would not control crawling of this project site.
 
 After publishing meaningful documentation changes:
 
-1. An owner with the appropriate Google account can verify a Search Console URL-prefix
-   property for the documentation site. Inspect the homepage and important guides,
-   submit the sitemap, and request indexing where appropriate. See Google's
+1. In the verified Search Console URL-prefix property for the documentation site,
+   inspect the homepage and important guides, submit the sitemap, and request
+   indexing where appropriate. Confirm that Search Console reports the request was
+   accepted; a live test alone does not establish that it was queued. See Google's
    [URL Inspection guide](https://support.google.com/webmasters/answer/9012289)
    and [sitemap guidance](https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap).
    Submission and inspection do not guarantee indexing or ranking.
@@ -23,6 +24,15 @@ After publishing meaningful documentation changes:
 4. Include README and metadata updates in the next release; PyPI displays metadata
    from the published distribution, not the latest repository branch.
 
-No Search Console verification, listing submission, ranking, or AI citation is
-claimed by this file. Google recommends its regular
+If the sitemap report says **Couldn't fetch**, inspect the exact submitted URL and
+its last-read date, check that the public sitemap returns HTTP 200 and contains the
+expected canonical URLs, and review Google's
+[sitemap troubleshooting guidance](https://support.google.com/webmasters/answer/7451001).
+A successful local HTTP request does not prove Googlebot could fetch it. Check the
+report again after processing; avoid repeatedly submitting an unchanged sitemap.
+For a homepage reported as unknown to Google, use URL Inspection to check its
+index status and test the live URL. Record the reported reason rather than guessing
+whether the cause is crawling, indexing, or ranking.
+
+No listing acceptance, ranking, or AI citation is claimed by this file. Google recommends its regular
 [search best practices for AI features](https://developers.google.com/search/docs/appearance/ai-features).
