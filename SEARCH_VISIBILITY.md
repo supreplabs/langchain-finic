@@ -1,44 +1,47 @@
-# Search visibility tracking
+# Search visibility monitoring
 
-This is a manual measurement log for the public documentation property
-<https://supreplabs.github.io/langchain-finic/>. Review weekly for the first
-month, then monthly. No automatic monitoring or notifications are configured.
-Do not record account details, personal information, search histories, or API keys.
+The [tracking issue](https://github.com/supreplabs/langchain-finic/issues/56)
+contains the baseline and weekly observations. The Search visibility workflow runs
+at 05:23 UTC on Mondays and can also be started with `workflow_dispatch`. Its
+comments are public: it posts aggregate clicks and impressions, sitemap metadata,
+and index status for the homepage and tutorial, never raw queries or credentials.
 
-## Baseline: 1 November 2026
+## Configure access
 
-- URL Inspection: homepage indexed; Googlebot smartphone last crawled it on
-  1 November at 15:19:37, fetched it successfully, and selected the inspected URL
-  as canonical. The report did not identify a referring sitemap.
-- Sitemap report: `/sitemap.xml` submitted on 1 November; status “Couldn't fetch,”
-  zero discovered pages. A normal HTTP request returned the sitemap successfully;
-  that does not establish what Googlebot received.
-- Search performance: Search Console displayed “Processing data, please check again
-  in a day or so”; clicks, impressions, and query metrics are **unavailable**, not zero.
-- Manual Google search, query `finic langchain`: no package result observed on the
-  first results page in a signed-in India session. AI Mode did not mention or cite
-  the package; it discussed Finic's older Psychic tutorial. One observation is not
-  a representative ranking or evidence of what other users see.
+The workflow uses GitHub OIDC and Google Cloud Workload Identity Federation to
+obtain a short-lived token with the `webmasters.readonly` scope. To activate it:
 
-## Weekly check
+1. In a Google Cloud project, enable the Search Console API, IAM Service Account
+   Credentials API, and Security Token Service API as needed for your federation
+   configuration. Create a dedicated service account.
+2. Create a workload identity pool and GitHub OIDC provider; restrict its attribute
+   condition to the `supreplabs/langchain-finic` repository and trusted branch or
+   workflow, and allow that identity to impersonate the dedicated service account.
+   Follow [Google's deployment pipeline guide](https://docs.cloud.google.com/iam/docs/workload-identity-federation-with-deployment-pipelines)
+   and [GitHub's OIDC guide](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-google-cloud-platform).
+3. In Search Console's Users and permissions for the URL-prefix property
+   `https://supreplabs.github.io/langchain-finic/`, add that service account as a
+   user with the least access that permits the three read operations. Confirm URL
+   Inspection, sitemap, and Search Analytics access with a manual run; do not grant
+   owner access merely for convenience.
+4. In GitHub repository **Settings → Secrets and variables → Actions → Variables**,
+   set `SEARCH_CONSOLE_WIF_PROVIDER` to the full workload identity provider resource
+   name and `SEARCH_CONSOLE_SERVICE_ACCOUNT` to the service account email.
+5. Run **Search visibility → Run workflow** on `main`. Verify that the run succeeds
+   and a report appears on the tracking issue. Google may return no performance rows
+   while data is processing; this is recorded as ambiguous, not as zero traffic.
 
-1. In Search Console, choose Web search and a fixed 28-day window; record the date
-   range, total impressions and clicks, top relevant queries, and top documentation
-   pages. Treat delayed or unavailable data as unavailable. Google can omit some
-   query data, so the displayed list may not be complete.
-2. Record indexed-page counts from the Pages report, plus homepage and tutorial URL
-   Inspection status and last crawl date. Record the sitemap status and last-read
-   date separately; don't infer causation from these statuses.
-3. In a consistent browser setup, search `finic langchain`, `finic grayson langchain`,
-   and `langchain-finic`. Record date, country, signed-in or signed-out state, first
-   page presence, and whether AI Mode mentioned or cited the package. Results vary
-   across sessions; absence from the first page is not a site-wide ranking.
-4. Record package downloads separately from [PyPI Stats](https://pypistats.org/packages/langchain-finic),
-   including the period and metric used. Download counts are not unique users.
-5. Compare equivalent periods after enough data accumulates. Note major releases,
-   docs changes, and external listings, but do not attribute changes to them without
-   additional evidence.
+These resources and property permissions must be configured by an authorized Google
+Cloud and Search Console administrator. Without both GitHub variables, the workflow
+skips the API and comment steps and records the missing configuration in the run
+summary. Authentication failures fail the run. Individual API failures are reported
+as unavailable without exposing response bodies. Schedule runs may be delayed.
 
-| Checked on | Search data range | Impressions / clicks | Indexed pages | Sitemap status / last read | Manual results | Notes |
-| --- | --- | --- | --- | --- | --- | --- |
-| 2026-11-01 | Unavailable | Unavailable | Homepage indexed; total unavailable | Couldn't fetch; 2026-11-01 | `finic langchain`: not on first page; AI Mode did not mention or cite package | Initial baseline; signed-in India session |
+The API reads the indexed version of a page; it does not perform a live URL test or
+request indexing. It does not return the Pages report's total indexed count. Search
+Analytics may omit data and be delayed. The workflow does not measure AI Mode or
+Google search rankings; maintainers can add clearly labeled, occasional manual
+observations to the tracking issue. Use consistent query, region, and signed-in
+status, and do not treat a single result as representative. Compare similar time
+windows, and don't infer causality from simultaneous changes. See Google's
+[AI search guidance](https://developers.google.com/search/docs/appearance/ai-features).
