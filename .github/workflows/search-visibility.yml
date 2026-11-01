@@ -1,0 +1,58 @@
+name: Search visibility
+on:
+  schedule:
+    - cron: '23 5 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+  id-token: write
+concurrency:
+  group: search-visibility
+  cancel-in-progress: false
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check configuration
+        id: config
+        env:
+          WIF_PROVIDER: ${{ vars.SEARCH_CONSOLE_WIF_PROVIDER }}
+          SERVICE_ACCOUNT: ${{ vars.SEARCH_CONSOLE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$WIF_PROVIDER" ] || [ -z "$SERVICE_ACCOUNT" ]; then
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            echo 'Search Console access is not configured; see SEARCH_VISIBILITY.md.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          fi
+      - id: auth
+        if: steps.config.outputs.ready == 'true'
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ vars.SEARCH_CONSOLE_WIF_PROVIDER }}
+          service_account: ${{ vars.SEARCH_CONSOLE_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/webmasters.readonly
+      - name: Collect aggregate report
+        if: steps.config.outputs.ready == 'true'
+        env:
+          SEARCH_CONSOLE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: python scripts/search_visibility.py > "$RUNNER_TEMP/search-report.md"
+      - name: Publish once per workflow run
+        if: steps.config.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          marker="<!-- search-visibility-run:${RUN_ID} -->"
+          gh api --paginate "repos/$GH_REPO/issues/56/comments" --jq '.[].body' > "$RUNNER_TEMP/existing-comments.txt"
+          if grep -Fq -- "$marker" "$RUNNER_TEMP/existing-comments.txt"; then
+            echo 'Report already exists for this workflow run.'
+          else
+            printf '\n%s\n' "$marker" >> "$RUNNER_TEMP/search-report.md"
+            gh issue comment 56 --body-file "$RUNNER_TEMP/search-report.md"
+          fi
