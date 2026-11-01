@@ -65,7 +65,8 @@ describes the public types and methods.
 
 Try the [LangChain decision tutorial](tutorials/langchain-decisions.md) or the
 [LangGraph fraud-review tutorial](tutorials/langgraph-review.md) for complete
-examples using fictional evidence.
+examples using fictional evidence. To combine a decision with a host chat model,
+try the [LangGraph payment-review workflow](tutorials/finic-langgraph-host-model.md).
 
 ## Frequently asked questions
 
