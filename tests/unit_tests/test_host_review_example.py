@@ -23,12 +23,17 @@ def test_review_workflow_routes_and_drafts(probability, queue):
     def respond(request):
         payload = json.loads(request.content)
         calls.append(payload)
-        return httpx.Response(200, json={
-            "id": "dec_example", "model": payload["model"],
-            "answers": {"takeover": {"type": "noul", "noul": probability}},
-            "usage": {"input_tokens": 10, "output_tokens": 0},
-            "request_id": "req_example", "evaluation_time_ms": 1,
-        })
+        return httpx.Response(
+            200,
+            json={
+                "id": "dec_example",
+                "model": payload["model"],
+                "answers": {"takeover": {"type": "noul", "noul": probability}},
+                "usage": {"input_tokens": 10, "output_tokens": 0},
+                "request_id": "req_example",
+                "evaluation_time_ms": 1,
+            },
+        )
 
     chat = FakeMessagesListChatModel(responses=[AIMessage(content="Review the fictional case.")])
     with FinicClassifier(api_key="test", transport=httpx.MockTransport(respond)) as classifier:
@@ -36,7 +41,9 @@ def test_review_workflow_routes_and_drafts(probability, queue):
     assert len(calls) == 1
     assert calls[0]["data"] == {"events": ["New device"]}
     assert (result["probability"], result["queue"], result["request_id"]) == (
-        probability, queue, "req_example"
+        probability,
+        queue,
+        "req_example",
     )
     assert result["analyst_note"] == "Review the fictional case."
 
