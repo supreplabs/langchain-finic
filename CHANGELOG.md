@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.0a9
+
+- Update `langchain-core` to 1.7.3, `langsmith` to 0.14.16, and the development
+  integration to `langgraph` 1.2.18; update Ruff to 0.17.3 and mypy to 2.4.1.
+- Update the pinned `setup-uv` GitHub Action to v10.3.3.
+
 ## 0.1.0a8
 
 - Preserve configured, bound and configurable decision models when native tool

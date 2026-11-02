@@ -25,7 +25,7 @@ credentials. Pick a model available to your provider account. Both providers may
 charge for requests, and Finic's retry policy can send additional requests.
 
 ```bash
-pip install 'langchain-finic==0.1.0a8' 'langchain>=1,<2' 'langgraph>=1,<2' langchain-openai
+pip install 'langchain-finic==0.1.0a9' 'langchain>=1,<2' 'langgraph>=1,<2' langchain-openai
 export FINIC_API_KEY=your_finic_key
 export OPENAI_API_KEY=your_host_provider_key
 ```
