@@ -3,7 +3,6 @@ from types import SimpleNamespace
 from urllib.parse import urlsplit
 
 import pytest
-from kairos import Kairos
 
 from langchain_finic import (
     KairosDecisionInput,
@@ -73,13 +72,14 @@ def test_kairos_runnable_invokes_typed_decision_and_traces_action():
 
 
 def test_kairos_runnable_works_with_pinned_sdk_without_network():
+    kairos_sdk = pytest.importorskip("kairos")
     requests = []
 
     def transport(method, url, headers, body, timeout):
         requests.append((method, url, headers, json.loads(body)))
         return 200, json.dumps({"decision": "approve", "risk_score": 12, "action": "transfer@1"}).encode(), {}
 
-    client = Kairos("synthetic-key", transport=transport)
+    client = kairos_sdk.Kairos("synthetic-key", transport=transport)
     try:
         result = KairosRunnable(client=client).invoke(
             {"action": "transfer", "properties": {"user_id": "user_1", "amount": 25}}
