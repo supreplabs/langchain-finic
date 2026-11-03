@@ -43,11 +43,13 @@ probability values.
 The **Live integration tests** GitHub Actions workflow runs daily on `main` at
 03:17 UTC and can be triggered manually from the Actions tab on `main`. Future
 release workflows also run it before building and publishing. Configure the
-repository secret `FINIC_API_KEY` to enable these runs. If it is absent, the live
-job is skipped with an explanation in the workflow summary; releases can proceed.
-If it is present, live test failures fail the workflow and block publishing.
-Each enabled run uses Python 3.12 and makes eighteen API requests without retries
-(approximately 540 requests per 30 daily runs, plus manual/release runs).
+repository secret `FINIC_API_KEY` to enable the paid Grayson checks. The separate
+read-only Kairos contract check uses `KAIROS_API_KEY`; it retrieves client settings
+and does not send events or request decisions. Either job skips with an explanation
+when its own secret is absent. If an enabled check fails, the workflow fails and
+blocks publishing. Configure both secrets to exercise both integrations.
+Each enabled Grayson run uses Python 3.12 and makes eighteen API requests without
+retries (approximately 540 requests per 30 daily runs, plus manual/release runs).
 
 Use `make format` for formatting and `uv lock` after dependency changes.
 Documentation lives in `docs/`; public API pages are generated from docstrings.

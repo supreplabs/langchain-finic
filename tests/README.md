@@ -75,6 +75,14 @@ two LangGraph tool calls, four middleware decisions, and two data/context checks
 The remaining check verifies that inherited standard tests were not overridden.
 A skip is not a successful provider validation.
 
+## Kairos live contract check
+
+Export `KAIROS_API_KEY` and run `make kairos_integration_test`. It calls the
+read-only `GET /v1/client-settings` endpoint through the official Python SDK to
+verify live authentication and response decoding. It does not create actions,
+send events, or request a decision. The scheduled/manual integration workflow
+runs this check when the repository secret is configured and skips it otherwise.
+
 ## Separate model lifecycle validation
 
 This is an intentional remote write test, **not** a default CI or daily smoke test.
