@@ -7,6 +7,8 @@ on:
     secrets:
       FINIC_API_KEY:
         required: false
+      KAIROS_API_KEY:
+        required: false
 permissions:
   contents: read
 concurrency:
@@ -23,17 +25,25 @@ jobs:
     timeout-minutes: 2
     outputs:
       enabled: ${{ steps.check.outputs.enabled }}
+      kairos_enabled: ${{ steps.check.outputs.kairos_enabled }}
     steps:
       - name: Check API key availability
         id: check
         env:
           FINIC_API_KEY: ${{ secrets.FINIC_API_KEY }}
+          KAIROS_API_KEY: ${{ secrets.KAIROS_API_KEY }}
         run: |
           if [ -n "$FINIC_API_KEY" ]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
             echo "Live integration tests skipped: FINIC_API_KEY is not configured." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ -n "$KAIROS_API_KEY" ]; then
+            echo "kairos_enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "kairos_enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Kairos live tests skipped: KAIROS_API_KEY is not configured." >> "$GITHUB_STEP_SUMMARY"
           fi
   live:
     name: Finic live contracts
@@ -68,6 +78,23 @@ jobs:
           path: artifacts/live/evidence.*
           if-no-files-found: warn
           retention-days: 90
+  kairos-live:
+    name: Kairos read-only live contract
+    needs: credentials
+    if: needs.credentials.outputs.kairos_enabled == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: '0.13.5'
+          python-version: '3.12'
+      - run: uv sync --locked --group test
+      - name: Verify Kairos SDK authentication and settings endpoint
+        env:
+          KAIROS_API_KEY: ${{ secrets.KAIROS_API_KEY }}
+        run: make kairos_integration_test
   evidence:
     name: Record live-test evidence
     needs: [credentials, live]

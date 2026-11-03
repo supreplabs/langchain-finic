@@ -19,6 +19,7 @@ jobs:
     uses: ./.github/workflows/integration.yml
     secrets:
       FINIC_API_KEY: ${{ secrets.FINIC_API_KEY }}
+      KAIROS_API_KEY: ${{ secrets.KAIROS_API_KEY }}
   build:
     needs: [checks, live-tests]
     runs-on: ubuntu-latest

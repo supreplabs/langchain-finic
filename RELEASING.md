@@ -96,9 +96,11 @@ make integration_test
 Do not commit the key or record production inputs. Tests verify the response contract,
 not an exact probability. No live calls run in pull requests. Future release
 workflows run the same live suite before building and publishing when the repository
-secret `FINIC_API_KEY` is configured. A missing secret skips the live job without
-blocking the release; a failed live test blocks publishing. The separate live
-workflow also runs daily and supports manual runs on `main`.
+secret `FINIC_API_KEY` is configured. The optional read-only Kairos contract check
+also runs when `KAIROS_API_KEY` is configured; it reads client settings and does not
+write events or request decisions. A missing key skips its check; a failed enabled
+live test blocks publishing. The separate live workflow also runs daily and supports
+manual runs on `main`.
 
 ## After publication
 
