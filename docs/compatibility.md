@@ -20,6 +20,7 @@ Prefer these imports when building applications:
 | `langchain_finic` | `ScoringInput`, `ScoringRequest`, `ScoringResponse` |
 | `langchain_finic` | `CreateScoreRequest`, `CreateScoreResponse`, `CalibrationRequest`, `CalibrationResponse` |
 | `langchain_finic` | `ScoreModel`, `ListScoresResponse`, `JobStatus`, `JobFailure` |
+| `langchain_finic` | `KairosRunnable`, `KairosToolkit`, and their input/output schemas |
 | `langchain_finic` | `Noul`, `Choice`, `MultiChoice`, `Score` |
 | `langchain_finic` | `NoulAnswer`, `ChoiceAnswer`, `MultiChoiceAnswer`, `ScoreAnswer` |
 | `langchain_finic.middleware` | `ModelChoice`, `ModelRouterMiddleware`, `AutoModeMiddleware`, `ModelRouterState`, `ContextBuilder` |
@@ -28,6 +29,9 @@ Middleware requires the `middleware` extra. `Noul` and `Score` are aliases whose
 underlying schema names appear in the API reference. Public import aliases and
 serialized class identifiers are compatibility commitments. Underscore-prefixed
 modules, attributes, and methods are implementation details.
+
+Kairos adapters require the `kairos` extra to install the separate `finic-kairos`
+SDK. They borrow a caller-owned client, do not close it, and are not serializable.
 
 ## Behavior applications can depend on
 
@@ -51,6 +55,10 @@ modules, attributes, and methods are implementation details.
 - `FinicToolkit` borrows a caller-owned client. Its default tools list models and
   check job status; creation and calibration require explicit selection. Write
   tools return job handles without automatically polling.
+- `KairosRunnable` and `KairosToolkit` borrow a caller-owned Kairos client. The
+  Runnable exposes a typed action decision. The toolkit defaults to `decide`;
+  event tracking and workflow execution must be selected explicitly. `track` queues
+  work for background delivery, while `flush` waits for the SDK queue to drain.
 - Batches make separate HTTP requests, preserve result order, and support
   `return_exceptions=True`. They are not atomic. Streaming emits one complete decision
   or scoring response, not token deltas.
@@ -91,6 +99,9 @@ Declared ranges are `langchain-core>=1,<2`, `langsmith>=0.3,<1`,
 and `langgraph>=1,<2`. CI checks the locked development environment, installed
 distributions, and an explicit minimum-dependency environment. This is not an
 exhaustive test of every combination within these ranges.
+
+The `kairos` extra supports `finic-kairos>=0.2,<0.3`; CI tests the adapter against
+the locked 0.2.0 SDK release.
 
 If a supported combination fails, report the installed package versions and a
 minimal reproduction with synthetic data. Changes to supported Python versions or

@@ -396,6 +396,15 @@ wheels = [
 ]
 
 [[package]]
+name = "finic-kairos"
+version = "0.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/36/a2/7b8bdf6fdc42285303b588ed78b47554c21eeb362f385ef9e51e6ae2cc5a/finic_kairos-0.2.0.tar.gz", hash = "sha256:5a8ca45793598e76cb428e2274f0bc468c0e5c3db4ad71f9f1b8b0cc1a6b299a", size = 62251, upload-time = "2026-11-01T20:02:31.271Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2b/0d/506ee445488542192a175df7a64aded5367aebaf10b7c81c50f8bdf807b9/finic_kairos-0.2.0-py3-none-any.whl", hash = "sha256:d2ed82a6a1a2290792a790dae10f9a2b5be02420c94c58c10f1585737e43d638", size = 43618, upload-time = "2026-11-01T20:02:30.006Z" },
+]
+
+[[package]]
 name = "ghp-import"
 version = "2.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -668,7 +677,7 @@ wheels = [
 
 [[package]]
 name = "langchain-finic"
-version = "0.1.0a9"
+version = "0.1.0a10"
 source = { editable = "." }
 dependencies = [
     { name = "httpx" },
@@ -678,6 +687,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+kairos = [
+    { name = "finic-kairos" },
+]
 middleware = [
     { name = "langchain" },
     { name = "langgraph" },
@@ -689,6 +701,7 @@ build = [
     { name = "twine" },
 ]
 dev = [
+    { name = "finic-kairos" },
     { name = "langchain" },
     { name = "langchain-tests" },
     { name = "langgraph" },
@@ -710,6 +723,7 @@ lint = [
     { name = "ruff" },
 ]
 test = [
+    { name = "finic-kairos" },
     { name = "langchain" },
     { name = "langchain-tests" },
     { name = "langgraph" },
@@ -719,6 +733,7 @@ test = [
 
 [package.metadata]
 requires-dist = [
+    { name = "finic-kairos", marker = "extra == 'kairos'", specifier = ">=0.2,<0.3" },
     { name = "httpx", specifier = ">=0.28.1,<1" },
     { name = "langchain", marker = "extra == 'middleware'", specifier = ">=1,<2" },
     { name = "langchain-core", specifier = ">=1,<2" },
@@ -726,7 +741,7 @@ requires-dist = [
     { name = "langsmith", specifier = ">=0.3,<1" },
     { name = "pydantic", specifier = ">=2.12,<3" },
 ]
-provides-extras = ["middleware"]
+provides-extras = ["middleware", "kairos"]
 
 [package.metadata.requires-dev]
 build = [
@@ -734,6 +749,7 @@ build = [
     { name = "twine", specifier = ">=7,<8" },
 ]
 dev = [
+    { name = "finic-kairos", specifier = "==0.2.0" },
     { name = "langchain", specifier = ">=1,<2" },
     { name = "langchain-tests", specifier = "==1.1.9" },
     { name = "langgraph", specifier = ">=1,<2" },
@@ -755,6 +771,7 @@ lint = [
     { name = "ruff", specifier = ">=0.12,<1" },
 ]
 test = [
+    { name = "finic-kairos", specifier = "==0.2.0" },
     { name = "langchain", specifier = ">=1,<2" },
     { name = "langchain-tests", specifier = "==1.1.9" },
     { name = "langgraph", specifier = ">=1,<2" },

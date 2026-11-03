@@ -17,7 +17,7 @@ Suprep Labs. The package is alpha and is not endorsed by Finic or LangChain.
 Use Python 3.11 or later and a Finic API key:
 
 ```bash
-pip install langchain-finic==0.1.0a9
+pip install langchain-finic==0.1.0a10
 export FINIC_API_KEY=your_key
 ```
 
@@ -53,6 +53,7 @@ Applications choose their own review or routing policy.
 | Sync and async calls | `invoke`, `ainvoke`, `batch`, `abatch` |
 | Agent tools | `FinicClassifier.as_tool()` |
 | LangGraph | Runnable nodes or tools in `ToolNode` |
+| Kairos | Optional typed Runnable and explicitly selected agent tools |
 | Optional middleware | Model routing and tool screening |
 | Host-enabled tracing | LangSmith metadata and usage |
 
@@ -77,6 +78,9 @@ Install `langchain-finic`, set `FINIC_API_KEY`, and pass a `DecisionRequest` to
 use it in a LangGraph node, or turn it into an agent tool with `as_tool()`.
 See the [LangChain tutorial](tutorials/langchain-decisions.md) and
 [LangGraph tutorial](tutorials/langgraph-review.md).
+
+For Kairos event tracking and action decisions, install the `kairos` extra and use
+`KairosRunnable` or `KairosToolkit`. See the [Kairos guide](kairos.md).
 
 ### Is Grayson a LangChain chat model?
 

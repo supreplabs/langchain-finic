@@ -1,6 +1,6 @@
 [project]
 name = "langchain-finic"
-version = "0.1.0a9"
+version = "0.1.0a10"
 description = "Finic Grayson decision and scoring integration for Python, LangChain, and LangGraph."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -33,9 +33,10 @@ Changelog = "https://github.com/supreplabs/langchain-finic/blob/main/CHANGELOG.m
 
 [project.optional-dependencies]
 middleware = ["langchain>=1,<2", "langgraph>=1,<2"]
+kairos = ["finic-kairos>=0.2,<0.3"]
 
 [dependency-groups]
-test = ["pytest>=8,<10", "pytest-socket>=0.7,<1", "langchain-tests==1.1.9", "langchain>=1,<2", "langgraph>=1,<2"]
+test = ["pytest>=8,<10", "pytest-socket>=0.7,<1", "langchain-tests==1.1.9", "langchain>=1,<2", "langgraph>=1,<2", "finic-kairos==0.2.0"]
 lint = ["ruff>=0.12,<1", "mypy>=1.15,<3"]
 docs = ["mkdocs>=1.6,<2", "mkdocstrings[python]>=0.30,<2"]
 build = ["twine>=7,<8", "packaging>=24"]
