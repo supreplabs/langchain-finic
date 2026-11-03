@@ -43,7 +43,7 @@ Evaluate decisions on representative data before relying on them.
 Python 3.11 or newer and a Finic API key are required.
 
 ```bash
-pip install langchain-finic==0.1.0a9
+pip install langchain-finic==0.1.0a10
 export FINIC_API_KEY=your_key
 ```
 
@@ -76,6 +76,7 @@ for client ownership, retries, and tracing.
 | Sync and async execution | `invoke`, `ainvoke`, `batch`, `abatch` |
 | Agent tools | `classifier.as_tool()` with `create_agent` or `ToolNode` |
 | Custom scoring | `FinicScorer`, `FinicToolkit`, and `FinicClient` |
+| Kairos decisions and events | Optional `KairosRunnable` and `KairosToolkit` (`[kairos]` extra) |
 | Optional middleware | `ModelRouterMiddleware` and `AutoModeMiddleware` |
 | Host-enabled observability | LangSmith traces and usage metadata |
 
@@ -107,8 +108,16 @@ flowchart LR
 For middleware, install the extra and the provider packages for your host chat models:
 
 ```bash
-pip install 'langchain-finic[middleware]==0.1.0a9'
+pip install 'langchain-finic[middleware]==0.1.0a10'
 ```
+
+For Kairos event tracking and action decisions, install the optional extra:
+
+```bash
+pip install 'langchain-finic[kairos]==0.1.0a10'
+```
+
+See the [Kairos adapter guide](https://supreplabs.github.io/langchain-finic/kairos/).
 
 ## Frequently asked questions
 

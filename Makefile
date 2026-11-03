@@ -16,6 +16,7 @@ type_check:
 	uv run --locked --group lint --extra middleware mypy
 docs:
 	uv run --locked --group docs --extra middleware mkdocs build --strict
+	test -s site/robots.txt
 build:
 	uv build
 	uv run --locked --group build twine check dist/*

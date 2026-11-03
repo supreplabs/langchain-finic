@@ -16,6 +16,10 @@ from langchain_finic import (
     DecisionResponse,
     FinicClassifier,
     FinicScorer,
+    KairosDecisionInput,
+    KairosDecisionOutput,
+    KairosRunnable,
+    KairosToolkit,
     ScoringInput,
     ScoringResponse,
 )
@@ -184,3 +188,15 @@ async def bound_decisions(
             bound.abatch_as_completed([request], return_exceptions=flag),
             AsyncIterator[tuple[int, DecisionResponse | Exception]],
         )
+
+
+def kairos(client: object, request: KairosDecisionInput) -> None:
+    runnable = KairosRunnable(client=client)
+    assert_type(runnable.invoke(request), KairosDecisionOutput)
+    assert_type(runnable.with_config(tags=["risk"]).invoke(request), KairosDecisionOutput)
+    assert_type(runnable.as_tool(), BaseTool)
+    assert_type(KairosToolkit(client=client).get_tools(), list[BaseTool])
+
+
+async def async_kairos(client: object, request: KairosDecisionInput) -> None:
+    assert_type(await KairosRunnable(client=client).ainvoke(request), KairosDecisionOutput)

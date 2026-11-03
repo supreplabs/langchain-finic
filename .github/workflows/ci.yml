@@ -43,6 +43,13 @@ jobs:
           cd /tmp
           /tmp/finic-base/bin/python "$GITHUB_WORKSPACE/scripts/smoke_install.py"
           /tmp/finic-base/bin/python -m pytest "$GITHUB_WORKSPACE/tests/unit_tests" -q
+      - name: Test installed Kairos extra
+        run: |
+          uv venv /tmp/finic-kairos
+          wheel_path="$(python -c 'from pathlib import Path; print(str(next(Path("dist").glob("langchain_finic-*.whl"))) + "[kairos,middleware]")')"
+          uv pip install --python /tmp/finic-kairos/bin/python "$wheel_path"
+          cd /tmp
+          /tmp/finic-kairos/bin/python "$GITHUB_WORKSPACE/scripts/smoke_install.py" --kairos
       - name: Rebuild and install source distribution
         run: |
           mkdir /tmp/finic-source

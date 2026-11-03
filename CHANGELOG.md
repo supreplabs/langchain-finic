@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.1.0a10
+
+- Add an optional Kairos SDK extra, typed LangChain decision Runnable, and
+  explicitly selected event/workflow tools with offline contract coverage.
+- Publish a permissive `robots.txt` with the documentation sitemap and verify it
+  appears at the generated site root.
+
 ## 0.1.0a9
 
 - Update `langchain-core` to 1.7.3, `langsmith` to 0.14.16, and the development

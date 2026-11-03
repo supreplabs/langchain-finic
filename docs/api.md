@@ -61,3 +61,11 @@ Requires `langchain-finic[middleware]`.
 ::: langchain_finic.toolkit.FinicToolkit
     options:
       members: [client, operations, get_tools]
+
+## Kairos Runnable and toolkit
+
+Requires `langchain-finic[kairos]` for the `finic-kairos` client.
+
+::: langchain_finic.kairos
+    options:
+      members: [KairosDecisionInput, KairosDecisionOutput, KairosEventInput, KairosTrackAndDecideInput, KairosWorkflowInput, KairosRunnable, KairosToolkit]

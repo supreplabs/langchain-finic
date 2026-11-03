@@ -2,6 +2,15 @@
 
 from langchain_finic.classifier import FinicClassifier
 from langchain_finic.client import FinicClient, FinicError
+from langchain_finic.kairos import (
+    KairosDecisionInput,
+    KairosDecisionOutput,
+    KairosEventInput,
+    KairosRunnable,
+    KairosToolkit,
+    KairosTrackAndDecideInput,
+    KairosWorkflowInput,
+)
 from langchain_finic.models import (
     Choice,
     ChoiceAnswer,
@@ -51,6 +60,13 @@ __all__ = [
     "FinicClassifier",
     "FinicClient",
     "FinicError",
+    "KairosDecisionInput",
+    "KairosDecisionOutput",
+    "KairosEventInput",
+    "KairosRunnable",
+    "KairosToolkit",
+    "KairosTrackAndDecideInput",
+    "KairosWorkflowInput",
     "MultiChoice",
     "MultiChoiceAnswer",
     "Noul",
