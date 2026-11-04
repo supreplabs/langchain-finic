@@ -6,7 +6,7 @@ description: Get started using Finic Grayson decision and scoring APIs with Pyth
 
 `langchain-finic` connects Finic Grayson's typed decisions to LangChain and
 LangGraph. It is an independent, MIT-licensed Python integration maintained by
-Suprep Labs. The package is alpha and is not endorsed by Finic or LangChain.
+Suprep Labs. The package is beta and is not endorsed by Finic or LangChain.
 
 [PyPI package](https://pypi.org/project/langchain-finic/) ·
 [Source code](https://github.com/supreplabs/langchain-finic) ·
@@ -17,7 +17,7 @@ Suprep Labs. The package is alpha and is not endorsed by Finic or LangChain.
 Use Python 3.11 or later and a Finic API key:
 
 ```bash
-pip install langchain-finic==0.1.0a10
+pip install langchain-finic==0.1.0b1
 export FINIC_API_KEY=your_key
 ```
 

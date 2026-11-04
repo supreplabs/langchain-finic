@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.1.0b1
+
+- Promote the package from alpha to beta after the documented live observation
+  period and representative application validation.
+- Keep the API explicitly prerelease: beta invites application feedback and does
+  not claim production stability or predictive accuracy.
+- Exclude Kairos-only checks from the Finic live-test job while retaining their
+  separate credential-gated workflow.
+
 ## 0.1.0a10
 
 - Add an optional Kairos SDK extra, typed LangChain decision Runnable, and

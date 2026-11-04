@@ -11,7 +11,7 @@ make check
 
 Keep changes focused, describe the behavior and validation in your pull request,
 and add regression tests for bugs. Public imports and serialized class identifiers
-are compatibility commitments, including during the alpha period. Discuss breaking
+are compatibility commitments, including during the beta period. Discuss breaking
 changes in an issue before implementing them. Use conventional commit titles.
 Follow the [compatibility policy](docs/compatibility.md) when changing public
 interfaces, defaults, dependencies, or serialization. Release promotion requires

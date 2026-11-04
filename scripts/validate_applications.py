@@ -1,4 +1,4 @@
-"""Validate three synthetic consumers of an installed alpha (five live decisions).
+"""Validate three synthetic consumers of an installed beta (five live decisions).
 
 Run outside the checkout with FINIC_API_KEY, FINIC_APPLICATION_TESTS=1 and an
 installed langchain-finic[middleware]. No model creation or calibration occurs.
@@ -276,6 +276,6 @@ async def run(output: Path, expected_version: str):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--version", default="0.1.0a10")
+    parser.add_argument("--version", default="0.1.0b1")
     args = parser.parse_args()
     asyncio.run(run(args.output, args.version))

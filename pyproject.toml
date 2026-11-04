@@ -1,6 +1,6 @@
 [project]
 name = "langchain-finic"
-version = "0.1.0a10"
+version = "0.1.0b1"
 description = "Finic Grayson decision and scoring integration for Python, LangChain, and LangGraph."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -11,7 +11,7 @@ maintainers = [{name = "Suprep Labs"}]
 keywords = ["langchain", "langgraph", "finic", "grayson", "agents"]
 dependencies = ["httpx>=0.28.1,<1", "langchain-core>=1,<2", "langsmith>=0.3,<1", "pydantic>=2.12,<3"]
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
