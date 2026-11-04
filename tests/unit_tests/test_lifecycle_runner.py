@@ -206,6 +206,6 @@ def test_runner_records_ambiguous_failure_without_retry(monkeypatch, tmp_path):
 def test_ci_does_not_select_lifecycle():
     makefile = (ROOT / "Makefile").read_text()
     ordinary = makefile.split("integration_test:\n")[1].split("\n", 1)[0]
-    assert "-m live" in ordinary and "LIFECYCLE" not in ordinary
+    assert "-m 'live and not kairos_live'" in ordinary and "LIFECYCLE" not in ordinary
     workflow = (ROOT / ".github/workflows/integration.yml").read_text()
     assert "make integration_test" in workflow and "LIFECYCLE" not in workflow
