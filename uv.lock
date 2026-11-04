@@ -677,7 +677,7 @@ wheels = [
 
 [[package]]
 name = "langchain-finic"
-version = "0.1.0a10"
+version = "0.1.0b1"
 source = { editable = "." }
 dependencies = [
     { name = "httpx" },

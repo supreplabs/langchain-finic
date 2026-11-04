@@ -19,7 +19,7 @@ probability-based decisions into LangChain Runnables, LangGraph workflows, and
 agent tools. Use it to add risk assessment, review routing, or decision support
 to an application, and to work with Finic custom scoring models.
 
-Maintained by Suprep Labs, this is an independent alpha package; it is not endorsed
+Maintained by Suprep Labs, this is an independent beta package; it is not endorsed
 by Finic or LangChain.
 See the [compatibility and support policy](https://supreplabs.github.io/langchain-finic/compatibility/)
 for the public API, tested environments, and versioning commitments.
@@ -43,7 +43,7 @@ Evaluate decisions on representative data before relying on them.
 Python 3.11 or newer and a Finic API key are required.
 
 ```bash
-pip install langchain-finic==0.1.0a10
+pip install langchain-finic==0.1.0b1
 export FINIC_API_KEY=your_key
 ```
 
@@ -108,13 +108,13 @@ flowchart LR
 For middleware, install the extra and the provider packages for your host chat models:
 
 ```bash
-pip install 'langchain-finic[middleware]==0.1.0a10'
+pip install 'langchain-finic[middleware]==0.1.0b1'
 ```
 
 For Kairos event tracking and action decisions, install the optional extra:
 
 ```bash
-pip install 'langchain-finic[kairos]==0.1.0a10'
+pip install 'langchain-finic[kairos]==0.1.0b1'
 ```
 
 See the [Kairos adapter guide](https://supreplabs.github.io/langchain-finic/kairos/).

@@ -178,7 +178,7 @@ comments. Neither reporting nor application validation promotes or publishes a r
 ## Installed-package application validation
 
 `scripts/validate_applications.py` exercises three small synthetic consumers of
-an installed alpha: typed payment review with customer context (two decisions),
+an installed beta: typed payment review with customer context (two decisions),
 a decision tool paused and resumed through a LangGraph checkpoint (one decision),
 and routing plus tool screening (two decisions). The host chat model is scripted,
 the tool reads local fictional data, and no creation/calibration endpoint is used.
@@ -189,9 +189,9 @@ checkout using a new evidence path. Export `FINIC_API_KEY` separately:
 
 ```bash
 uv venv /tmp/finic-apps
-uv pip install --python /tmp/finic-apps/bin/python 'langchain-finic[middleware]==0.1.0a10'
+uv pip install --python /tmp/finic-apps/bin/python 'langchain-finic[middleware]==0.1.0b1'
 cd /tmp
-FINIC_APPLICATION_TESTS=1 /tmp/finic-apps/bin/python /path/to/langchain-finic/scripts/validate_applications.py --output /tmp/finic-apps-new.json --version 0.1.0a10
+FINIC_APPLICATION_TESTS=1 /tmp/finic-apps/bin/python /path/to/langchain-finic/scripts/validate_applications.py --output /tmp/finic-apps-new.json --version 0.1.0b1
 ```
 
 The runner rejects checkout imports, unexpected package versions, existing evidence

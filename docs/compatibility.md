@@ -4,9 +4,8 @@ description: Compatibility, support, and versioning policy for the langchain-fin
 
 # Compatibility and support
 
-The published package is currently alpha. This policy identifies the supported
-surface and the commitments planned for beta and the first final `0.1.x` series.
-It does not change the current release's maturity status.
+The published package is currently beta. This policy identifies the supported
+surface and the commitments for beta and the first final `0.1.x` series.
 
 ## Public imports
 
