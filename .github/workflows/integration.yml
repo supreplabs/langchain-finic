@@ -127,8 +127,8 @@ jobs:
           path: artifacts/live/evidence.*
           if-no-files-found: error
           retention-days: 90
-      - name: Link daily and manual evidence to the observation issue
+      - name: Link daily and manual live-test evidence to issue #12
         if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh issue comment 11 --body-file artifacts/live/evidence.md
+        run: gh issue comment 12 --body-file artifacts/live/evidence.md

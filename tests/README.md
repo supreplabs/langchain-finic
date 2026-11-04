@@ -154,8 +154,10 @@ independent accuracy evaluation.
 
 The live workflow records `live-observation-RUN_ID-ATTEMPT` artifacts and a job
 summary on success, test failure, or missing credentials. Each scheduled/manual
-run on `main` links its sanitized report to issue #11. Release runs retain their
-own artifact and summary, and never count as scheduled observations.
+run on `main` links its sanitized report to issue #12. These are maintainer-run
+synthetic contract checks; they do not count as independent-user feedback, real
+application adoption, or upgrade validation. Release runs retain their own
+artifact and summary, and never count as scheduled observations.
 
 Reports include the source commit, event/ref, attempt, UTC timestamp, workflow
 link, Python/package versions, test counts, and observed Finic HTTP attempts.
