@@ -17,7 +17,7 @@ Suprep Labs. The package is beta and is not endorsed by Finic or LangChain.
 Use Python 3.11 or later and a Finic API key:
 
 ```bash
-pip install langchain-finic==0.1.0b1
+pip install langchain-finic==0.1.0b2
 export FINIC_API_KEY=your_key
 ```
 
