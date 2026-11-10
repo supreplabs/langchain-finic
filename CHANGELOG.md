@@ -4,7 +4,7 @@
 
 ## 0.1.0b2
 
-- Refresh the development and test dependency lockfile.
+- Refresh locked runtime, development, and test dependencies.
 
 ## 0.1.0b1
 
