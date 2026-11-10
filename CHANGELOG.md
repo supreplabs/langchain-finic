@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.1.0b2
+
+- Refresh locked runtime, development, and test dependencies.
+
 ## 0.1.0b1
 
 - Promote the package from alpha to beta after the documented live observation
