@@ -18,6 +18,7 @@ nav:
   - Usage and configuration: usage.md
   - Testing applications offline: testing.md
   - Compatibility and support: compatibility.md
+  - Finic API compatibility: finic-compatibility.md
   - Custom scoring: scoring.md
   - Kairos: kairos.md
   - Calibration and latency budgets: deployment.md

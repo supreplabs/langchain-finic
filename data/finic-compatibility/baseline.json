@@ -1,0 +1,72 @@
+{
+  "reviewed_on": "2026-11-11",
+  "reference": "https://docs.finic.ai/reference.md",
+  "operations": {
+    "DELETE /v1/scoring_models/{model_id}": {
+      "status": "missing",
+      "note": "Model deletion is not exposed; design explicit authorization for this operation.",
+      "link": "/reference/delete-scoring-model",
+      "digest": "dd6065352bfa52157fcc190a0c82569031cecf31a5079b7746936667a67a0c11"
+    },
+    "DELETE /v1/scoring_models/{model_id}/questions/{question_id}": {
+      "status": "missing",
+      "note": "Removing scoring-model questions is not exposed.",
+      "link": "/reference/remove-question",
+      "digest": "af2500f28bb6b4e243e6ced23c6479d7fe445face914d666a158de129b812395"
+    },
+    "GET /v1/jobs/{job_id}": {
+      "status": "supported",
+      "note": "Job status is exposed with sync and async clients.",
+      "link": "/reference/get-job-status",
+      "digest": "6a7040fc7e91eab3fa993e556124a2d5bfb744d516e54052f2e02e639fce80b2"
+    },
+    "GET /v1/scoring_models": {
+      "status": "missing",
+      "note": "The package currently lists models using the earlier /v1/scores route.",
+      "link": "/reference/list-scoring-models",
+      "digest": "32fa6df206e678fd9ebe34befae8796ffe1528cc2ef5705a60e44ddfce958003"
+    },
+    "GET /v1/scoring_models/{model_id}": {
+      "status": "missing",
+      "note": "Model detail retrieval is not exposed.",
+      "link": "/reference/get-scoring-model",
+      "digest": "d19387bae6d2af749491e47a8c4e6b1390f4598a333ea39ba5d8460504af8c79"
+    },
+    "PATCH /v1/scoring_models/{model_id}": {
+      "status": "missing",
+      "note": "Model metadata updates and archiving are not exposed.",
+      "link": "/reference/update-scoring-model",
+      "digest": "4bea215e850c0c9487295a0b03ef6e3bd41398b2acab8e6426e21a219ab2ca20"
+    },
+    "POST /v1/ask": {
+      "status": "partial",
+      "note": "The package calls the earlier /v1/decide alias; assess direct /v1/ask and its current typed contract.",
+      "link": "/reference/ask",
+      "digest": "60afff87bc5cac75ec9b8d1ce18b56803a76f75fb9efbebe40516eb76fb90a74"
+    },
+    "POST /v1/calibrate": {
+      "status": "partial",
+      "note": "Calibration exists; review the current labeled-record and question-update contract.",
+      "link": "/reference/calibrate",
+      "digest": "99b2a39137864e7b282b8e93521a29414959a65ebce9a98705abbe74872d9b09"
+    },
+    "POST /v1/score": {
+      "status": "partial",
+      "note": "Scoring exists; review current fields and multipart support against the provider contract.",
+      "link": "/reference/score",
+      "digest": "c36f0ea966e3af42de54e56dfc078fbe3969f5d7889d194754d75d89217c3d6d"
+    },
+    "POST /v1/scoring_models": {
+      "status": "missing",
+      "note": "The package currently creates models using the earlier /v1/scores route.",
+      "link": "/reference/create-scoring-model",
+      "digest": "612d31fee7c160454a9f53a55fdc8fe68bf6d0a6d6c842c678942dcd8ce01145"
+    },
+    "POST /v1/scoring_models/{model_id}/questions": {
+      "status": "missing",
+      "note": "Adding scoring-model questions is not exposed.",
+      "link": "/reference/add-questions",
+      "digest": "004357b9ca240c379018490ce94cda52fd61db187cf02b05a82d0980ae347058"
+    }
+  }
+}
