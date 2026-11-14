@@ -1,8 +1,8 @@
 """Agent composition; install langchain-finic[middleware] and your chat provider.
 
 Pass a tool-calling chat model and keep the FinicClient context open throughout
-agent use. Default tools can score records and inspect models/jobs; they cannot
-create or calibrate models. Supply stable, unique score IDs from the application.
+agent use. Default tools can score records and read models, questions and jobs; they
+cannot create, change, calibrate or delete models. Supply stable, unique score IDs from the application.
 """
 
 from langchain.agents import create_agent

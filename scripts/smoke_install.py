@@ -26,6 +26,8 @@ def main():
         assert AutoModeMiddleware and ModelRouterMiddleware
 
     def respond(request):
+        # The installed wheel must reach Finic's current endpoint, not the earlier name.
+        assert str(request.url) == "https://api.finic.ai/v1/ask"
         assert request.headers["authorization"] == "Bearer synthetic-key"
         return httpx.Response(
             200,
@@ -59,7 +61,7 @@ def main():
 
         def kairos_transport(method, url, headers, body, timeout):
             assert method == "POST"
-            assert url.endswith("/v1/decide")
+            assert url.endswith("/v1/decide")  # The Kairos SDK's own path, not ours.
             assert headers["Authorization"] == "Bearer synthetic-kairos-key"
             assert json.loads(body)["action"] == "synthetic_action"
             return 200, b'{"decision":"review","risk_score":55}', {}

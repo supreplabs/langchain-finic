@@ -17,8 +17,8 @@ Prefer these imports when building applications:
 | `langchain_finic` | `DecisionRequest`, `DecisionResponse` |
 | `langchain_finic` | `FinicScorer`, `FinicToolkit` |
 | `langchain_finic` | `ScoringInput`, `ScoringRequest`, `ScoringResponse` |
-| `langchain_finic` | `CreateScoreRequest`, `CreateScoreResponse`, `CalibrationRequest`, `CalibrationResponse` |
-| `langchain_finic` | `ScoreModel`, `ListScoresResponse`, `JobStatus`, `JobFailure` |
+| `langchain_finic` | `CreateScoringModelRequest`, `CreateScoringModelResponse`, `CalibrationRequest`, `CalibrationResponse` |
+| `langchain_finic` | `ScoringModel`, `ScoringModelDetail`, `ListScoringModelsResponse`, `JobStatus`, `JobFailure` |
 | `langchain_finic` | `KairosRunnable`, `KairosToolkit`, and their input/output schemas |
 | `langchain_finic` | `Noul`, `Choice`, `MultiChoice`, `Score` |
 | `langchain_finic` | `NoulAnswer`, `ChoiceAnswer`, `MultiChoiceAnswer`, `ScoreAnswer` |

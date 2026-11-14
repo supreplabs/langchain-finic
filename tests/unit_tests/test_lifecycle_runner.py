@@ -6,7 +6,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from langchain_finic import CreateScoreRequest, FinicClient, FinicError
+from langchain_finic import CreateScoringModelRequest, FinicClient, FinicError
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -20,7 +20,7 @@ def runner(optimize=0):
 
 def test_synthetic_examples_meet_provider_minima():
     examples = runner()["synthetic_examples"]()
-    assert len(CreateScoreRequest(data=examples).data) == 100
+    assert len(CreateScoringModelRequest(name="M", data=examples).data) == 100
     assert sum(item["is_bad"] for item in examples) == 50
 
 
@@ -46,9 +46,33 @@ def test_preserves_previous_evidence(monkeypatch, tmp_path):
     assert output.read_text() == "previous attempt"
 
 
+MODEL = "/v1/scoring_models"
+DETAIL = f"{MODEL}/scm_new"
+
+
+def model_body(**overrides):
+    return {
+        "model_id": "scm_new",
+        "name": "langchain-finic synthetic check",
+        "status": "ready",
+        "criteria": "synthetic",
+        "created_at": "2026-10-27",
+        "calibrated_at": None,
+        "archived_at": None,
+        "examples": 100,
+        "bad_rate": 0.5,
+        "scored": 0,
+    } | overrides
+
+
+def questions(count=1):
+    return [{"id": f"q00{i}", "text": "Is it new?", "source": "finic", "weight": 0.5} for i in range(count)]
+
+
 @pytest.mark.parametrize("optimize", [0, 1])
 @pytest.mark.parametrize(
-    "failure", [None, "creation", "calibration", "listing", "identity", "matching", "score1", "score2"]
+    "failure",
+    [None, "creation", "calibration", "listing", "detail", "identity", "rows", "archive", "score1", "score2"],
 )
 def test_lifecycle_sequence_and_evidence(failure, optimize, monkeypatch, tmp_path):
     module = runner(optimize)
@@ -59,8 +83,8 @@ def test_lifecycle_sequence_and_evidence(failure, optimize, monkeypatch, tmp_pat
     def handle(request):
         calls.append((request.method, request.url.path))
         payload = json.loads(request.content) if request.content else None
-        if request.url.path == "/v1/scores" and request.method == "POST":
-            assert len(payload["data"]) == 100
+        if request.url.path == MODEL and request.method == "POST":
+            assert len(payload["data"]) == 100 and payload["name"]
             return httpx.Response(
                 202, json={"model_id": "scm_new", "job_id": "job_creation", "request_id": "req_creation"}
             )
@@ -70,25 +94,17 @@ def test_lifecycle_sequence_and_evidence(failure, optimize, monkeypatch, tmp_pat
             if job_id == "job_" + str(failure):
                 body["error"] = {"type": "internal_error", "message": "provider detail"}
             return httpx.Response(200, json=body)
-        if request.url.path == "/v1/scores":
+        if request.url.path == MODEL:
             return httpx.Response(
                 200,
-                json={
-                    "scores": [
-                        {
-                            "model_id": "scm_new",
-                            "status": "training" if failure == "listing" else "ready",
-                            "criteria": "synthetic",
-                            "created_at": "2026-10-27",
-                            "calibrated_at": None,
-                            "examples": 100,
-                            "bad_rate": 0.5,
-                            "scored": 0,
-                            "outcomes": 0,
-                        }
-                    ]
-                },
+                json={"scoring_models": [model_body(status="training" if failure == "listing" else "ready")]},
             )
+        if request.url.path == DETAIL and request.method == "GET":
+            return httpx.Response(200, json=model_body(questions=[] if failure == "detail" else questions()))
+        if request.url.path == DETAIL and request.method == "PATCH":
+            assert payload == {"archived": True}
+            archived = None if failure == "archive" else "2026-11-13T00:00:00Z"
+            return httpx.Response(200, json=model_body(archived_at=archived, questions=questions()))
         if request.url.path == "/v1/score":
             assert payload["model_id"] == "scm_new"
             ids.append(payload["score_id"])
@@ -100,24 +116,24 @@ def test_lifecycle_sequence_and_evidence(failure, optimize, monkeypatch, tmp_pat
                     "status": "pending",
                 }
                 raise httpx.ReadTimeout("private provider data", request=request)
-            return httpx.Response(
-                200,
-                json={
-                    "model_id": "scm_new",
-                    "score_id": "wrong" if failure == "identity" else ids[-1],
-                    "score": 50,
-                    "request_id": "req_score",
-                },
-            )
+            body = {
+                "model_id": "scm_new",
+                "score_id": "wrong" if failure == "identity" else ids[-1],
+                "score": 50,
+                "request_id": "req_score",
+            }
+            # The runner asks for questions on the second record only.
+            if payload.get("include_questions"):
+                body["questions"] = [{"id": "q000", "text": "Is it new?", "probability": 0.7, "weight": 0.5}]
+            return httpx.Response(200, json=body)
         if request.url.path == "/v1/calibrate":
             assert payload["model_id"] == "scm_new"
-            assert [item["score_id"] for item in payload["data"]] == ids
+            assert len(payload["data"]) == 100
             return httpx.Response(
                 202,
                 json={
                     "job_id": "job_calibration",
-                    "matched": 1 if failure == "matching" else 2,
-                    "unmatched": 0,
+                    "rows": 99 if failure == "rows" else 100,
                     "request_id": "req_calibration",
                 },
             )
@@ -149,12 +165,16 @@ def test_lifecycle_sequence_and_evidence(failure, optimize, monkeypatch, tmp_pat
         assert ("POST", "/v1/calibrate") not in calls
         assert "test-key" not in output.read_text() and "private" not in output.read_text()
         return
-    if failure in ("listing", "identity", "matching"):
+    if failure in ("listing", "detail", "identity", "rows", "archive"):
         with pytest.raises(
             RuntimeError,
-            match={"listing": "not listed as ready", "identity": "identity", "matching": "match both"}[
-                failure
-            ],
+            match={
+                "listing": "not listed as ready",
+                "detail": "no questions",
+                "identity": "identity",
+                "rows": "every labeled record",
+                "archive": "not archived",
+            }[failure],
         ):
             asyncio.run(run())
         assert evidence[-1]["status"] != "passed"
@@ -166,12 +186,15 @@ def test_lifecycle_sequence_and_evidence(failure, optimize, monkeypatch, tmp_pat
         result = asyncio.run(run())
         assert result["status"] == "passed"
         assert len(ids) == len(set(ids)) == 2
-        assert len(calls) == 7
+        assert len(calls) == 9
         assert ("GET", "/v1/jobs/job_calibration") in calls
+        assert ("PATCH", DETAIL) in calls
+        assert ("GET", DETAIL) in calls
+        assert result["question_ids"] == ["q000"]
         assert [item["status"] for item in result["score_attempts"]] == ["validated", "validated"]
     assert evidence[0]["model_id"] == "scm_new"
     assert evidence[0]["creation_job_id"] == "job_creation"
-    assert calls.count(("POST", "/v1/scores")) == 1
+    assert calls.count(("POST", MODEL)) == 1
     if failure == "creation":
         assert not ids
         assert ("POST", "/v1/calibrate") not in calls

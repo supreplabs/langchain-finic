@@ -88,14 +88,14 @@ def test_counter_persists_failed_and_concurrent_attempts_without_payloads(tmp_pa
     async def run():
         async with httpx.AsyncClient(transport=httpx.MockTransport(fail)) as client:
             return await asyncio.gather(
-                *(client.get("https://api.finic.ai/v1/decide") for _ in range(3)), return_exceptions=True
+                *(client.get("https://api.finic.ai/v1/ask") for _ in range(3)), return_exceptions=True
             )
 
     original_send = httpx.Client.send
     with Counter(path):
         with httpx.Client(transport=httpx.MockTransport(fail)) as client:
             with pytest.raises(httpx.ReadTimeout):
-                client.get("https://api.finic.ai/v1/decide", headers={"authorization": "private"})
+                client.get("https://api.finic.ai/v1/ask", headers={"authorization": "private"})
         results = asyncio.run(run())
         assert all(isinstance(result, httpx.ReadTimeout) for result in results)
         with httpx.Client(transport=httpx.MockTransport(lambda _: httpx.Response(200))) as client:

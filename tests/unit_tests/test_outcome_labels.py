@@ -7,29 +7,26 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from langchain_finic import CalibrationRequest, CreateScoreRequest, FinicClient
+from langchain_finic import CalibrationRequest, CreateScoringModelRequest, FinicClient
 
 
 @pytest.mark.parametrize(
     "bad,good", [("true", "false"), ("TRUE", "FALSE"), ("1", "0"), ("yes", "no"), ("YeS", "nO")]
 )
 @pytest.mark.parametrize("encoding", ["json", "csv"])
-@pytest.mark.parametrize("operation", ["create_score", "calibrate"])
+@pytest.mark.parametrize("operation", ["create_scoring_model", "calibrate"])
 @pytest.mark.parametrize("asynchronous", [False, True])
 def test_documented_label_forms_reach_wire_unchanged(bad, good, encoding, operation, asynchronous):
     labels = [bad if i % 2 else good for i in range(100)]
-    if operation == "create_score":
-        data = [{"amount": i, "is_bad": label} for i, label in enumerate(labels)]
-        if encoding == "csv":
-            data = "amount,is_bad\n" + "".join(f"{i},{label}\n" for i, label in enumerate(labels))
-        request = CreateScoreRequest(data=data)
+    data = [{"amount": i, "is_bad": label} for i, label in enumerate(labels)]
+    if encoding == "csv":
+        data = "amount,is_bad\n" + "".join(f"{i},{label}\n" for i, label in enumerate(labels))
+    if operation == "create_scoring_model":
+        request = CreateScoringModelRequest(name="Labels", data=data)
         result_body = {"model_id": "scm_test", "job_id": "job_test", "request_id": "req_test"}
     else:
-        data = [{"score_id": f"s_{i}", "is_bad": label} for i, label in enumerate(labels)]
-        if encoding == "csv":
-            data = "score_id,is_bad\n" + "".join(f"s_{i},{label}\n" for i, label in enumerate(labels))
         request = CalibrationRequest(model_id="scm_test", data=data)
-        result_body = {"job_id": "job_test", "request_id": "req_test", "matched": 100, "unmatched": 0}
+        result_body = {"job_id": "job_test", "request_id": "req_test", "rows": 100}
     seen = []
 
     def handle(http_request):
@@ -56,12 +53,16 @@ def test_documented_label_forms_reach_wire_unchanged(bad, good, encoding, operat
 
 @pytest.mark.parametrize("label", ["maybe", "", " true ", "2", 2, None, [], {}])
 def test_invalid_labels_remain_rejected(label):
+    rows = [{"amount": i, "is_bad": label} for i in range(100)]
     with pytest.raises(ValidationError):
-        CreateScoreRequest(data=[{"amount": i, "is_bad": label} for i in range(100)])
+        CreateScoringModelRequest(name="M", data=rows)
     with pytest.raises(ValidationError):
-        CalibrationRequest(model_id="m", data=[{"score_id": "s", "is_bad": label}])
+        CalibrationRequest(model_id="m", data=rows)
 
 
-def test_text_labels_still_require_both_training_outcomes():
+def test_text_labels_still_require_both_outcomes():
+    rows = [{"amount": i, "is_bad": "yes"} for i in range(100)]
     with pytest.raises(ValidationError, match="20 examples of each outcome"):
-        CreateScoreRequest(data=[{"amount": i, "is_bad": "yes"} for i in range(100)])
+        CreateScoringModelRequest(name="M", data=rows)
+    with pytest.raises(ValidationError, match="20 examples of each outcome"):
+        CalibrationRequest(model_id="m", data=rows)

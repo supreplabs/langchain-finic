@@ -1,4 +1,4 @@
-"""Typed contracts for custom scoring and asynchronous model lifecycle jobs."""
+"""Typed contracts for custom scoring and asynchronous scoring-model lifecycle jobs."""
 
 import csv
 import io
@@ -20,6 +20,13 @@ from langchain_finic._state import normalize_state
 from langchain_finic.models import Model, Probability, Text
 
 ScoreId = Annotated[str, Field(min_length=1, max_length=200, pattern=r"\S")]
+QuestionId = Annotated[str, Field(min_length=1, max_length=200, pattern=r"\S")]
+# Finic accepts up to 20 questions per call and 500 characters each.
+QuestionText = Annotated[str, Field(min_length=1, max_length=500, pattern=r"\S")]
+Questions = Annotated[list[QuestionText], Field(min_length=1, max_length=20)]
+ModelName = Annotated[str, Field(min_length=1, max_length=100, pattern=r"\S")]
+Criteria = Annotated[str, Field(max_length=4000)]
+Weight = Annotated[float, Field(allow_inf_nan=False)]
 Record = dict[str, JsonValue]
 Rows = list[Record] | Text
 
@@ -63,8 +70,24 @@ def _check_record(row: Record) -> None:
         raise ValueError("Record exceeds the 60,000 byte compact JSON limit")
 
 
+def _check_labeled_rows(data: Rows) -> None:
+    """Apply Finic's labeled-record minima, shared by creation and calibration."""
+    rows = _rows(data)
+    if len(rows) < 100:
+        raise ValueError("Labeled records require at least 100 rows")
+    labels = []
+    for row in rows:
+        labels.append(_label(row.get("is_bad")))
+        if not isinstance(data, str):
+            _check_record(row)
+        elif not set(row) - {"is_bad"}:
+            raise ValueError("Each labeled record needs at least one field other than is_bad")
+    if sum(labels) < 20 or len(labels) - sum(labels) < 20:
+        raise ValueError("Labeled records require at least 20 examples of each outcome")
+
+
 class ScoringInput(Model):
-    """Input to a scorer bound to a custom model; IDs are supplied by the caller."""
+    """Input to a scorer bound to a scoring model; IDs are supplied by the caller."""
 
     score_id: ScoreId
     data: Record | Rows
@@ -73,6 +96,10 @@ class ScoringInput(Model):
     )
     update_schema: StrictBool | None = Field(
         default=None, description="Change the remote model schema to this record for future scoring calls."
+    )
+    include_questions: StrictBool | None = Field(
+        default=None,
+        description="Also return the questions the score used, each with its probability and weight.",
     )
 
     @field_validator("data", mode="before")
@@ -97,9 +124,13 @@ class ScoringRequest(ScoringInput):
     model_id: Text
 
 
-class CreateScoreRequest(Model):
-    data: Rows
-    description: Annotated[str, Field(max_length=4000)] | None = None
+class CreateScoringModelRequest(Model):
+    """Create a scoring model from its criteria alone, or from labeled records."""
+
+    name: ModelName
+    criteria: Criteria | None = None
+    data: Rows | None = None
+    add_questions: Questions | None = None
 
     @field_validator("data", mode="before")
     @classmethod
@@ -107,25 +138,43 @@ class CreateScoreRequest(Model):
         return normalize_state(value)
 
     @model_validator(mode="after")
-    def training_examples(self) -> Self:
-        rows = _rows(self.data)
-        if len(rows) < 100:
-            raise ValueError("Creating a score requires at least 100 labeled rows")
-        labels = []
-        for row in rows:
-            labels.append(_label(row.get("is_bad")))
-            if not isinstance(self.data, str):
-                _check_record(row)
-            elif not set(row) - {"is_bad"}:
-                raise ValueError("Each example needs at least one field other than is_bad")
-        if sum(labels) < 20 or len(labels) - sum(labels) < 20:
-            raise ValueError("Creating a score requires at least 20 examples of each outcome")
+    def criteria_or_records(self) -> Self:
+        if self.data is None:
+            if self.criteria is None or not self.criteria.strip():
+                raise ValueError("Provide criteria, labeled records in data, or both")
+            return self
+        _check_labeled_rows(self.data)
         return self
 
 
+class UpdateScoringModelRequest(Model):
+    """Rename a scoring model, change its criteria, or archive and unarchive it."""
+
+    name: ModelName | None = None
+    # Finic allows empty criteria only once the scoring model is calibrated.
+    criteria: Criteria | None = None
+    archived: StrictBool | None = None
+
+    @model_validator(mode="after")
+    def at_least_one_change(self) -> Self:
+        if self.name is None and self.criteria is None and self.archived is None:
+            raise ValueError("Provide name, criteria, or archived")
+        return self
+
+
+class AddQuestionsRequest(Model):
+    """Add your own yes/no questions to a scoring model without calibrating it."""
+
+    questions: Questions
+
+
 class CalibrationRequest(Model):
+    """Fit a scoring model to labeled records, optionally changing its questions."""
+
     model_id: Text
     data: Rows
+    add_questions: Questions | None = None
+    remove_questions: Annotated[list[QuestionId], Field(min_length=1, max_length=50)] | None = None
 
     @field_validator("data", mode="before")
     @classmethod
@@ -133,17 +182,12 @@ class CalibrationRequest(Model):
         return normalize_state(value)
 
     @model_validator(mode="after")
-    def outcomes(self) -> Self:
-        rows = _rows(self.data)
-        if not rows:
-            raise ValueError("Calibration requires outcomes")
-        for row in rows:
-            score_id = row.get("score_id")
-            if not isinstance(score_id, str) or not score_id.strip() or len(score_id) > 200:
-                raise ValueError("Each outcome needs a score_id of 1 to 200 characters")
-            _label(row.get("is_bad"))
-            if "model_id" in row and row["model_id"] != self.model_id:
-                raise ValueError("Outcome model_id must match the request model_id")
+    def labeled_records(self) -> Self:
+        _check_labeled_rows(self.data)
+        if self.remove_questions is not None and len(set(self.remove_questions)) != len(
+            self.remove_questions
+        ):
+            raise ValueError("Each removed question id must appear once")
         return self
 
 
@@ -151,44 +195,107 @@ class ResponseModel(BaseModel):
     model_config = ConfigDict(hide_input_in_errors=True)
 
 
+class ScoredQuestion(ResponseModel):
+    """A question behind one score, returned with include_questions."""
+
+    id: Text
+    text: str
+    probability: Probability
+    weight: Weight
+
+
 class ScoringResponse(ResponseModel):
     model_id: Text
     score_id: ScoreId
     score: Annotated[StrictInt, Field(ge=0, le=1000)]
+    questions: list[ScoredQuestion] | None = None
     request_id: Text
 
     def validate_for(self, request: ScoringRequest) -> None:
         if self.model_id != request.model_id or self.score_id != request.score_id:
             raise ValueError("Scoring response identity does not match the request")
+        if not request.include_questions and self.questions is not None:
+            raise ValueError("Finic returned questions that were not requested")
 
 
-class CreateScoreResponse(ResponseModel):
+class CreateScoringModelResponse(ResponseModel):
+    """A created scoring model; job_id is present only when records are being fitted."""
+
     model_id: Text
-    job_id: Text
+    job_id: Text | None = None
     request_id: Text
+
+    @property
+    def ready(self) -> bool:
+        """True when the scoring model was created from criteria alone and needs no job."""
+        return self.job_id is None
 
 
 class CalibrationResponse(ResponseModel):
     job_id: Text
-    matched: Annotated[StrictInt, Field(ge=0)]
-    unmatched: Annotated[StrictInt, Field(ge=0)]
+    rows: Annotated[StrictInt, Field(ge=0)]
     request_id: Text
 
 
-class ScoreModel(ResponseModel):
+class ScoringModelQuestion(ResponseModel):
+    """A question a scoring model uses, with its calibrated or estimated weight."""
+
+    id: Text
+    text: str
+    source: Literal["finic", "user"]
+    weight: Weight
+
+
+class ScoringModel(ResponseModel):
+    """A scoring model as listing returns it. Name and criteria may be empty."""
+
     model_id: Text
+    name: str
     status: Literal["training", "ready", "failed"]
     criteria: str
     created_at: Text
     calibrated_at: str | None
+    archived_at: str | None
     examples: Annotated[StrictInt, Field(ge=0)]
     bad_rate: Probability
     scored: Annotated[StrictInt, Field(ge=0)]
-    outcomes: Annotated[StrictInt, Field(ge=0)]
+
+    @property
+    def archived(self) -> bool:
+        return self.archived_at is not None
+
+    @property
+    def calibrated(self) -> bool:
+        return self.calibrated_at is not None
 
 
-class ListScoresResponse(ResponseModel):
-    scores: list[ScoreModel]
+class ScoringModelDetail(ScoringModel):
+    """One scoring model with the questions it uses, strongest first."""
+
+    questions: list[ScoringModelQuestion]
+
+    @property
+    def user_questions(self) -> list[ScoringModelQuestion]:
+        return [question for question in self.questions if question.source == "user"]
+
+
+class AddedQuestion(ResponseModel):
+    id: Text
+    text: str
+    used: StrictBool
+
+
+class AddQuestionsResponse(ScoringModelDetail):
+    added: list[AddedQuestion]
+
+
+class DeleteScoringModelResponse(ResponseModel):
+    model_id: Text
+    deleted: Literal[True]
+
+
+class ListScoringModelsResponse(ResponseModel):
+    scoring_models: list[ScoringModel]
 
 
 class JobFailure(ResponseModel):

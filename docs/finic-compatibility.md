@@ -7,7 +7,7 @@ description: Finic API compatibility rubric and automated upstream change monito
 This matrix reviews the Finic API reference against the package, independently
 of LangChain and Python version compatibility. It is a point-in-time assessment,
 not a promise that a provider operation is available to every account or that its
-predictions meet a customer's requirements. Reviewed on 11 November 2026 against
+predictions meet a customer's requirements. Reviewed on 13 November 2026 against
 [Finic's API reference](https://docs.finic.ai/reference).
 
 | Status | Rubric |
@@ -19,22 +19,37 @@ predictions meet a customer's requirements. Reviewed on 11 November 2026 against
 
 | Finic operation | Status | Package coverage and gap |
 | --- | --- | --- |
-| `POST /v1/ask` | Partial | `FinicClassifier` and `FinicClient.decide` call the documented earlier `/v1/decide` alias. Review direct `/v1/ask` support and its current contract. |
-| `POST /v1/score` | Partial | `FinicScorer` and `FinicClient.score` provide JSON scoring. Review current fields and multipart support. |
-| `POST /v1/scoring_models` | Missing | Creation uses the older `/v1/scores` path; the current endpoint and criteria-only creation need review. |
-| `GET /v1/scoring_models` | Missing | Listing uses the older `/v1/scores` path. |
-| `GET /v1/scoring_models/{model_id}` | Missing | Model details and questions have no client method. |
-| `PATCH /v1/scoring_models/{model_id}` | Missing | Updating or archiving a model has no client method. |
-| `DELETE /v1/scoring_models/{model_id}` | Missing | Deletion has no client method; any implementation needs an explicit destructive-operation policy. |
-| `POST /v1/scoring_models/{model_id}/questions` | Missing | Adding questions has no client method. |
-| `DELETE /v1/scoring_models/{model_id}/questions/{question_id}` | Missing | Removing questions has no client method. |
-| `POST /v1/calibrate` | Partial | A client method exists; review the current labeled-record and question-update contract. |
+| `POST /v1/ask` | Supported | `FinicClassifier` and `FinicClient.decide` call `/v1/ask` directly. Typed questions, base rates, answers, usage and identity are covered by unit tests. |
+| `POST /v1/score` | Supported | `FinicScorer` and `FinicClient.score` send the documented JSON fields, including `include_questions`, and parse the returned questions. Multipart is an alternative encoding the package does not need. |
+| `POST /v1/scoring_models` | Supported | `FinicClient.create_scoring_model` creates from criteria alone or from labeled records, and reads both the `201` and `202` response shapes. |
+| `GET /v1/scoring_models` | Supported | `FinicClient.list_scoring_models` reads the documented `scoring_models` listing. |
+| `GET /v1/scoring_models/{model_id}` | Supported | `FinicClient.get_scoring_model` reads one model with its questions, sources and weights. |
+| `PATCH /v1/scoring_models/{model_id}` | Supported | `FinicClient.update_scoring_model` renames, re-states criteria, and archives or unarchives. |
+| `DELETE /v1/scoring_models/{model_id}` | Supported | `FinicClient.delete_scoring_model` is exposed and documented as irreversible. `FinicToolkit` never selects it by default, and `FinicToolkit.destructive` names it when an application does. |
+| `POST /v1/scoring_models/{model_id}/questions` | Supported | `FinicClient.add_questions` adds up to 20 questions and reads the model with its `added` list. |
+| `DELETE /v1/scoring_models/{model_id}/questions/{question_id}` | Supported | `FinicClient.remove_question` removes one question and reads the updated model. |
+| `POST /v1/calibrate` | Supported | `FinicClient.calibrate` sends labeled records with `add_questions` and `remove_questions`, and reads `job_id` and `rows`. |
 | `GET /v1/jobs/{job_id}` | Supported | Sync and async job status methods are covered by unit tests. |
 
-Finic documents `/v1/decide` as an earlier name of `/v1/ask` that still works.
-The legacy paths used by the package require separate verification; their absence
-from the current endpoint table does not establish that they have stopped working.
+Supported means the documented request and response contract has a public package
+interface covered by offline tests against the documented shapes. It does not mean
+every operation has been exercised against a live account: the credential-gated
+lifecycle runner covers creation, listing, reading, scoring, calibration and
+archiving, and deletion is deliberately left to the application.
+
+Finic records `POST /v1/decide` as the earlier name of `/v1/ask`, and `examples` as
+the earlier name of `data` in `calibrate`. The package uses the current names.
 Kairos is a separate API and is outside this matrix.
+
+**One open question.** The package offers four question types, and the current
+`ask` reference documents three: `noul`, `choice` and `multi_choice`. The fourth,
+`score`, with its ordered levels and expected-level answer, was exercised against
+`/v1/decide` by the live decision suite as recently as 13 November 2026, so it
+works on the earlier path. Whether `/v1/ask` validates question types more strictly
+than `/v1/decide` is not something the published reference answers, and offline
+tests cannot settle it. The live decision suite exercises a `score` question on
+every run, so the first scheduled run after this change is the check that matters.
+If it fails, the question type is the thing to look at first.
 
 ## Weekly check
 

@@ -2,6 +2,54 @@
 
 ## Unreleased
 
+Finic's scoring-model API moved on, and this release follows it. The package was
+calling `/v1/scores` for creation and listing, which is not in Finic's current
+reference and is not recorded there as an earlier name, and five documented
+operations had no interface at all. **Applications that create, list or calibrate
+scoring models must change their code.**
+
+### Endpoints
+
+- Call `POST /v1/ask` directly. `/v1/decide` is recorded by Finic as its earlier
+  name and still answers, so decisions are unchanged on the wire.
+- Create and list scoring models at `/v1/scoring_models`. `FinicClient.create_score`
+  and `list_scores` are replaced by `create_scoring_model` and
+  `list_scoring_models`, with `CreateScoringModelRequest`, `CreateScoringModelResponse`
+  and `ListScoringModelsResponse`.
+- Creation now takes a required `name`, and either `criteria` alone or labeled
+  records in `data`, with optional `add_questions`. Criteria-only creation returns a
+  ready model with no `job_id`, which `ready` reports. `description` is gone;
+  `criteria` replaces it.
+- Listing returns `scoring_models`, each with `name` and `archived_at`. `ScoreModel`
+  becomes `ScoringModel` and no longer carries `outcomes`.
+- Add `get_scoring_model`, `update_scoring_model`, `delete_scoring_model`,
+  `add_questions` and `remove_question`, with their request and response types.
+- `calibrate` takes labeled records in the same shape as creation, with optional
+  `add_questions` and `remove_questions`. It no longer takes rows keyed by a
+  previously submitted `score_id`, and its response carries `rows` in place of
+  `matched` and `unmatched`.
+- `score` accepts `include_questions` and parses the returned `questions`. A
+  response carrying questions that were not asked for is rejected.
+
+### Behavior
+
+- Deletion is irreversible and needs an admin's API key. `FinicToolkit` never
+  selects it by default, and `FinicToolkit.destructive` names the selected
+  operations that cannot be undone.
+- Toolkit operations are renamed to the provider's nouns, so the default tools are
+  now `finic_list_scoring_models`, `finic_get_scoring_model` and
+  `finic_get_job_status`.
+- A transport failure on any write, not only `POST`, reports that the outcome may
+  be unknown. Reads and the idempotent `update_scoring_model` retry; every other
+  write is sent once.
+- Structured error hints cover `403`, `404` and `409`.
+- The compatibility matrix records all eleven operations as supported, and the
+  weekly check reports no findings.
+- The lifecycle runner reads the created model's questions, asks for the questions
+  behind one score, calibrates with labeled records, and archives the model it
+  created instead of leaving it active. The live evidence recorded on 2026-10-27
+  predates these endpoints and is marked as such.
+
 ## 0.1.0b2
 
 - Refresh locked runtime, development, and test dependencies.

@@ -1,7 +1,7 @@
 """Checkpointed model creation, scoring, and calibration; requires the middleware extra.
 
 This module only builds a graph; it does not create remote models on import.
-The caller authorizes writes, supplies synthetic examples/record IDs/outcomes,
+The caller authorizes writes, supplies synthetic labeled records and record IDs,
 keeps the client open, and passes a checkpointer and thread_id. Each write has
 its own node; no automatic write retries are configured. Resume a failed wait
 with graph.ainvoke(None, config). In-memory checkpoints do not survive process
@@ -16,16 +16,17 @@ from langgraph.graph import END, START, StateGraph
 
 from langchain_finic import (
     CalibrationRequest,
-    CreateScoreRequest,
+    CreateScoringModelRequest,
     FinicClient,
     FinicScorer,
 )
 
 
 class LifecycleState(TypedDict, total=False):
+    name: str
     examples: list[dict]
     record: dict
-    is_bad: bool
+    outcomes: list[dict]
     model_id: str
     creation_job_id: str
     creation_request_id: str
@@ -38,7 +39,9 @@ class LifecycleState(TypedDict, total=False):
 
 def build_graph(client: FinicClient, checkpointer):
     async def create(state: LifecycleState):
-        result = await client.acreate_score(CreateScoreRequest(data=state["examples"]))
+        result = await client.acreate_scoring_model(
+            CreateScoringModelRequest(name=state.get("name", "Synthetic"), data=state["examples"])
+        )
         return {
             "model_id": result.model_id,
             "creation_job_id": result.job_id,
@@ -55,11 +58,9 @@ def build_graph(client: FinicClient, checkpointer):
         return {"scoring_result": result.model_dump()}
 
     async def calibrate(state: LifecycleState):
+        # Calibration takes labeled records, as creation does, not scored IDs.
         result = await client.acalibrate(
-            CalibrationRequest(
-                model_id=state["model_id"],
-                data=[{"score_id": state["scoring_result"]["score_id"], "is_bad": state["is_bad"]}],
-            )
+            CalibrationRequest(model_id=state["model_id"], data=state.get("outcomes") or state["examples"])
         )
         return {"calibration_job_id": result.job_id, "calibration_request_id": result.request_id}
 

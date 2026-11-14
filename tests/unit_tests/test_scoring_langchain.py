@@ -61,7 +61,20 @@ class TestScorerIntegration(ScorerContract, ToolsIntegrationTests):
 
 
 class ToolkitContract:
-    @pytest.fixture(autouse=True, params=["list_scores", "get_job_status", "create_score", "calibrate"])
+    @pytest.fixture(
+        autouse=True,
+        params=[
+            "list_scoring_models",
+            "get_scoring_model",
+            "get_job_status",
+            "create_scoring_model",
+            "add_questions",
+            "remove_question",
+            "update_scoring_model",
+            "calibrate",
+            "delete_scoring_model",
+        ],
+    )
     def selected_operation(self, request):
         self.operation = request.param
         self.clients = []
@@ -71,11 +84,33 @@ class ToolkitContract:
 
     @property
     def tool_constructor(self):
+        detail = {
+            "model_id": "scm_test",
+            "name": "Fraud",
+            "status": "ready",
+            "criteria": "Chargebacks.",
+            "created_at": "2026-10-27T00:00:00Z",
+            "calibrated_at": None,
+            "archived_at": None,
+            "examples": 100,
+            "bad_rate": 0.5,
+            "scored": 0,
+            "questions": [{"id": "q001", "text": "Is it new?", "source": "user", "weight": 0.4}],
+        }
         responses = {
-            "list_scores": {"scores": []},
+            "list_scoring_models": {"scoring_models": []},
+            "get_scoring_model": detail,
             "get_job_status": {"job_id": "job_test", "complete": True},
-            "create_score": {"model_id": "scm_test", "job_id": "job_test", "request_id": "req_test"},
-            "calibrate": {"job_id": "job_test", "matched": 1, "unmatched": 0, "request_id": "req_test"},
+            "create_scoring_model": {
+                "model_id": "scm_test",
+                "job_id": "job_test",
+                "request_id": "req_test",
+            },
+            "add_questions": detail | {"added": [{"id": "q001", "text": "Is it new?", "used": True}]},
+            "remove_question": detail,
+            "update_scoring_model": detail,
+            "calibrate": {"job_id": "job_test", "rows": 100, "request_id": "req_test"},
+            "delete_scoring_model": {"model_id": "scm_test", "deleted": True},
         }
         transport = httpx.MockTransport(lambda _: httpx.Response(200, json=responses[self.operation]))
         client = FinicClient("test", transport=transport, async_transport=transport)
@@ -84,11 +119,17 @@ class ToolkitContract:
 
     @property
     def tool_invoke_params_example(self):
+        rows = [{"amount": i, "is_bad": i % 2} for i in range(100)]
         return {
-            "list_scores": {},
+            "list_scoring_models": {},
+            "get_scoring_model": {"model_id": "scm_test"},
             "get_job_status": {"job_id": "job_test"},
-            "create_score": {"data": [{"amount": i, "is_bad": i % 2} for i in range(100)]},
-            "calibrate": {"model_id": "scm_test", "data": [{"score_id": "s", "is_bad": False}]},
+            "create_scoring_model": {"name": "Fraud", "data": rows},
+            "add_questions": {"model_id": "scm_test", "questions": ["Is it new?"]},
+            "remove_question": {"model_id": "scm_test", "question_id": "q001"},
+            "update_scoring_model": {"model_id": "scm_test", "archived": True},
+            "calibrate": {"model_id": "scm_test", "data": rows},
+            "delete_scoring_model": {"model_id": "scm_test"},
         }[self.operation]
 
 
@@ -211,12 +252,20 @@ def test_borrowed_client_tool_selection_and_validation():
         model.close()
         assert not client._closed
         toolkit = FinicToolkit(client=client)
-        assert [tool.name for tool in toolkit.get_tools()] == ["finic_list_scores", "finic_get_job_status"]
+        assert [tool.name for tool in toolkit.get_tools()] == [
+            "finic_list_scoring_models",
+            "finic_get_scoring_model",
+            "finic_get_job_status",
+        ]
+        assert toolkit.destructive == ()
+        assert FinicToolkit(client=client, operations=("delete_scoring_model",)).destructive == (
+            "delete_scoring_model",
+        )
         assert FinicToolkit(client=client, operations=()).get_tools() == []
         with pytest.raises(ValidationError):
             FinicToolkit(client=client, operations=("calibrate", "calibrate"))
         with pytest.raises(ValidationError):
-            FinicToolkit(client=client, operations=("delete_score",))
+            FinicToolkit(client=client, operations=("delete_scores",))
         with pytest.raises(ValidationError):
             FinicScorer(model_id="scm_test", client=client, api_key="another")
     with scorer() as model:
@@ -267,7 +316,7 @@ def test_checkpointed_graph_resumes_wait_without_repeating_creation():
         def handle(request):
             nonlocal failed_once
             calls.append((request.method, request.url.path))
-            if request.url.path == "/v1/scores":
+            if request.url.path == "/v1/scoring_models":
                 return httpx.Response(
                     202, json={"model_id": "scm_graph", "job_id": "job_create", "request_id": "req_create"}
                 )
@@ -283,12 +332,7 @@ def test_checkpointed_graph_resumes_wait_without_repeating_creation():
             if request.url.path == "/v1/calibrate":
                 return httpx.Response(
                     202,
-                    json={
-                        "job_id": "job_calibrate",
-                        "matched": 1,
-                        "unmatched": 0,
-                        "request_id": "req_calibrate",
-                    },
+                    json={"job_id": "job_calibrate", "rows": 100, "request_id": "req_calibrate"},
                 )
             raise AssertionError(request.url)
 
@@ -300,7 +344,6 @@ def test_checkpointed_graph_resumes_wait_without_repeating_creation():
                     {
                         "examples": [{"amount": i, "is_bad": i % 2} for i in range(100)],
                         "record": record(),
-                        "is_bad": False,
                     },
                     config,
                 )
@@ -311,7 +354,7 @@ def test_checkpointed_graph_resumes_wait_without_repeating_creation():
             result = await graph.ainvoke(None, config)
         assert result["calibration_ready"] and result["creation_ready"]
         assert result["scoring_result"]["score_id"] == "record_0"
-        assert calls.count(("POST", "/v1/scores")) == 1
+        assert calls.count(("POST", "/v1/scoring_models")) == 1
         assert calls.count(("POST", "/v1/calibrate")) == 1
 
     asyncio.run(run())
@@ -326,7 +369,8 @@ def test_agent_example_tool_call(asynchronous):
         def bind_tools(self, tools, **kwargs):
             assert {tool.name for tool in tools} == {
                 "finic_score",
-                "finic_list_scores",
+                "finic_list_scoring_models",
+                "finic_get_scoring_model",
                 "finic_get_job_status",
             }
             return self
