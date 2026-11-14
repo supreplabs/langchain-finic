@@ -16,14 +16,19 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError, f
 from langchain_finic._config import env_option
 from langchain_finic.models import DecisionRequest, DecisionResponse
 from langchain_finic.scoring_models import (
+    AddQuestionsRequest,
+    AddQuestionsResponse,
     CalibrationRequest,
     CalibrationResponse,
-    CreateScoreRequest,
-    CreateScoreResponse,
+    CreateScoringModelRequest,
+    CreateScoringModelResponse,
+    DeleteScoringModelResponse,
     JobStatus,
-    ListScoresResponse,
+    ListScoringModelsResponse,
+    ScoringModelDetail,
     ScoringRequest,
     ScoringResponse,
+    UpdateScoringModelRequest,
 )
 
 ResponseT = TypeVar("ResponseT", bound=BaseModel)
@@ -212,6 +217,9 @@ class FinicClient:
             400: "Invalid Finic request",
             401: "Check FINIC_API_KEY; authentication failed",
             402: "Finic credits exhausted; check billing in the portal",
+            403: "Finic permission denied; deleting a scoring model needs an admin's key",
+            404: "Finic resource not found",
+            409: "Finic scoring model is not in a usable state for this call",
             413: "Case exceeds Finic's token or body size limit",
             429: "Finic rate limit reached",
         }
@@ -247,7 +255,7 @@ class FinicClient:
                 if last:
                     raise FinicError(
                         "Finic transport failed; write outcome may be unknown"
-                        if method == "POST" and not retry
+                        if method != "GET" and not retry
                         else "Finic unreachable after bounded retries"
                     ) from None
             else:
@@ -281,7 +289,7 @@ class FinicClient:
                 if last:
                     raise FinicError(
                         "Finic transport failed; write outcome may be unknown"
-                        if method == "POST" and not retry
+                        if method != "GET" and not retry
                         else "Finic unreachable after bounded retries"
                     ) from None
             else:
@@ -303,10 +311,10 @@ class FinicClient:
             ) from None
 
     def decide(self, request: DecisionRequest) -> DecisionResponse:
-        return self._parse(self._send("POST", "/v1/decide", request=request, retry=True), request)
+        return self._parse(self._send("POST", "/v1/ask", request=request, retry=True), request)
 
     async def adecide(self, request: DecisionRequest) -> DecisionResponse:
-        return self._parse(await self._asend("POST", "/v1/decide", request=request, retry=True), request)
+        return self._parse(await self._asend("POST", "/v1/ask", request=request, retry=True), request)
 
     @staticmethod
     def _scored(response: httpx.Response, request: ScoringRequest) -> ScoringResponse:
@@ -326,22 +334,100 @@ class FinicClient:
     async def ascore(self, request: ScoringRequest) -> ScoringResponse:
         return self._scored(await self._asend("POST", "/v1/score", request=request), request)
 
-    def create_score(self, request: CreateScoreRequest) -> CreateScoreResponse:
-        """Start creation once; return the model/job IDs without polling."""
-        return self._result(self._send("POST", "/v1/scores", request=request), CreateScoreResponse)
+    MODELS = "/v1/scoring_models"
 
-    async def acreate_score(self, request: CreateScoreRequest) -> CreateScoreResponse:
-        return self._result(await self._asend("POST", "/v1/scores", request=request), CreateScoreResponse)
+    @classmethod
+    def _model_path(cls, model_id: str, *suffix: str) -> str:
+        if not isinstance(model_id, str) or not model_id.strip():
+            raise ValueError("model_id must be nonblank text")
+        parts = [cls.MODELS, quote(model_id, safe="")]
+        parts.extend(quote(part, safe="") for part in suffix)
+        return "/".join(parts)
 
-    def list_scores(self) -> ListScoresResponse:
-        """List up to 500 scores, newest first (the API has no pagination)."""
-        return self._result(self._send("GET", "/v1/scores", retry=True), ListScoresResponse)
+    @classmethod
+    def _question_path(cls, model_id: str, question_id: str) -> str:
+        if not isinstance(question_id, str) or not question_id.strip():
+            raise ValueError("question_id must be nonblank text")
+        return cls._model_path(model_id, "questions", question_id)
 
-    async def alist_scores(self) -> ListScoresResponse:
-        return self._result(await self._asend("GET", "/v1/scores", retry=True), ListScoresResponse)
+    @staticmethod
+    def _identified(model: ScoringModelDetail, model_id: str, response: httpx.Response):
+        if model.model_id != model_id:
+            raise FinicError(
+                "Finic scoring model response identity mismatch",
+                request_id=response.headers.get("x-request-id"),
+            )
+        return model
+
+    def create_scoring_model(self, request: CreateScoringModelRequest) -> CreateScoringModelResponse:
+        """Create once; return the model ID, and a job ID when records are fitted."""
+        return self._result(self._send("POST", self.MODELS, request=request), CreateScoringModelResponse)
+
+    async def acreate_scoring_model(self, request: CreateScoringModelRequest) -> CreateScoringModelResponse:
+        return self._result(
+            await self._asend("POST", self.MODELS, request=request), CreateScoringModelResponse
+        )
+
+    def list_scoring_models(self) -> ListScoringModelsResponse:
+        """List up to 500 scoring models, newest first (the API has no pagination)."""
+        return self._result(self._send("GET", self.MODELS, retry=True), ListScoringModelsResponse)
+
+    async def alist_scoring_models(self) -> ListScoringModelsResponse:
+        return self._result(await self._asend("GET", self.MODELS, retry=True), ListScoringModelsResponse)
+
+    def get_scoring_model(self, model_id: str) -> ScoringModelDetail:
+        """Read one scoring model with the questions it uses, strongest first."""
+        response = self._send("GET", self._model_path(model_id), retry=True)
+        return self._identified(self._result(response, ScoringModelDetail), model_id, response)
+
+    async def aget_scoring_model(self, model_id: str) -> ScoringModelDetail:
+        response = await self._asend("GET", self._model_path(model_id), retry=True)
+        return self._identified(self._result(response, ScoringModelDetail), model_id, response)
+
+    def update_scoring_model(self, model_id: str, request: UpdateScoringModelRequest) -> ScoringModelDetail:
+        """Rename, re-state criteria, or archive and unarchive. Repeating this is safe."""
+        response = self._send("PATCH", self._model_path(model_id), request=request, retry=True)
+        return self._identified(self._result(response, ScoringModelDetail), model_id, response)
+
+    async def aupdate_scoring_model(
+        self, model_id: str, request: UpdateScoringModelRequest
+    ) -> ScoringModelDetail:
+        response = await self._asend("PATCH", self._model_path(model_id), request=request, retry=True)
+        return self._identified(self._result(response, ScoringModelDetail), model_id, response)
+
+    def delete_scoring_model(self, model_id: str) -> DeleteScoringModelResponse:
+        """Delete a scoring model and its records. This cannot be undone.
+
+        Finic accepts this only with an API key an organization admin created.
+        Archive with update_scoring_model to stop calls without deleting.
+        """
+        return self._result(self._send("DELETE", self._model_path(model_id)), DeleteScoringModelResponse)
+
+    async def adelete_scoring_model(self, model_id: str) -> DeleteScoringModelResponse:
+        return self._result(
+            await self._asend("DELETE", self._model_path(model_id)), DeleteScoringModelResponse
+        )
+
+    def add_questions(self, model_id: str, request: AddQuestionsRequest) -> AddQuestionsResponse:
+        """Add your own questions once; a repeat of an accepted call is rejected."""
+        response = self._send("POST", self._model_path(model_id, "questions"), request=request)
+        return self._identified(self._result(response, AddQuestionsResponse), model_id, response)
+
+    async def aadd_questions(self, model_id: str, request: AddQuestionsRequest) -> AddQuestionsResponse:
+        response = await self._asend("POST", self._model_path(model_id, "questions"), request=request)
+        return self._identified(self._result(response, AddQuestionsResponse), model_id, response)
+
+    def remove_question(self, model_id: str, question_id: str) -> ScoringModelDetail:
+        """Remove one question. A question the calibrated score uses is refused."""
+        response = self._send("DELETE", self._question_path(model_id, question_id))
+        return self._identified(self._result(response, ScoringModelDetail), model_id, response)
+
+    async def aremove_question(self, model_id: str, question_id: str) -> ScoringModelDetail:
+        response = await self._asend("DELETE", self._question_path(model_id, question_id))
+        return self._identified(self._result(response, ScoringModelDetail), model_id, response)
 
     def calibrate(self, request: CalibrationRequest) -> CalibrationResponse:
-        """Submit outcomes once; return the accepted job without polling."""
+        """Submit labeled records once; return the accepted job without polling."""
         return self._result(self._send("POST", "/v1/calibrate", request=request), CalibrationResponse)
 
     async def acalibrate(self, request: CalibrationRequest) -> CalibrationResponse:

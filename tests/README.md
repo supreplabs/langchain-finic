@@ -2,22 +2,27 @@
 
 The default suite is offline and blocks network sockets. Mock responses exercise
 contracts and failure behavior; they do not establish provider availability or
-predictive accuracy. Public API methods exist for all six documented REST
+predictive accuracy. Public API methods exist for all eleven documented REST
 endpoints. Live evidence is recorded separately below.
 
 ## Coverage matrix
 
 | Endpoint | Request/response contracts | Offline coverage | Live coverage |
 | --- | --- | --- | --- |
-| `POST /v1/decide` | model, data/context, legacy state mapping, four question types, base rates; typed answers, usage and identity | `test_classifier.py`, `test_decision_contract.py`, `test_model_config.py`, `test_integration.py`, `test_middleware.py` | Ordinary opt-in decision suite; data/context and context-only checks |
-| `POST /v1/score` | model_id, stable score_id, JSON/CSV one-record data, schema flags; integer score, model/record/request IDs | `test_scoring_client.py`, `test_scoring_langchain.py` | Separate synthetic lifecycle |
-| `POST /v1/scores` | JSON/CSV examples, outcome minima, optional description; accepted model/job/request IDs | `test_scoring_client.py`, `test_lifecycle_runner.py` | Separate synthetic lifecycle |
-| `GET /v1/scores` | no arguments; status, criteria, timestamps, example/outcome counts, bad rate | `test_scoring_client.py`, toolkit standard tests | Separate synthetic lifecycle |
-| `POST /v1/calibrate` | model_id, JSON/CSV outcomes, matching optional row model_id; matched/unmatched counts and job/request IDs | `test_scoring_client.py`, `test_lifecycle_runner.py` | Separate synthetic lifecycle |
+| `POST /v1/ask` | model, data/context, legacy state mapping, four question types, base rates; typed answers, usage and identity | `test_classifier.py`, `test_decision_contract.py`, `test_model_config.py`, `test_integration.py`, `test_middleware.py` | Ordinary opt-in decision suite; data/context and context-only checks |
+| `POST /v1/score` | model_id, stable score_id, JSON/CSV one-record data, schema flags, include_questions; integer score, returned questions, model/record/request IDs | `test_scoring_client.py`, `test_scoring_langchain.py` | Separate synthetic lifecycle |
+| `POST /v1/scoring_models` | name, criteria-only and labeled-record creation, add_questions, label minima; both the ready `201` and the job-bearing `202` | `test_scoring_client.py`, `test_lifecycle_runner.py` | Separate synthetic lifecycle |
+| `GET /v1/scoring_models` | no arguments; name, status, criteria, timestamps, archived_at, example count, bad rate | `test_scoring_client.py`, toolkit standard tests | Separate synthetic lifecycle |
+| `GET /v1/scoring_models/{model_id}` | escaped model path; the listing fields plus questions with source and signed weight; response identity | `test_scoring_client.py`, toolkit standard tests | Separate synthetic lifecycle |
+| `PATCH /v1/scoring_models/{model_id}` | at least one of name/criteria/archived, unarchive surviving null exclusion; updated model, response identity | `test_scoring_client.py`, toolkit standard tests | Separate synthetic lifecycle (archive step) |
+| `DELETE /v1/scoring_models/{model_id}` | escaped model path, single attempt; model_id and deleted flag, admin-key refusal | `test_scoring_client.py`, toolkit standard tests | Deliberately not exercised live |
+| `POST /v1/scoring_models/{model_id}/questions` | 1 to 20 questions, 500 characters each; updated model with the `added` list, response identity | `test_scoring_client.py`, toolkit standard tests | Not exercised live |
+| `DELETE /v1/scoring_models/{model_id}/questions/{question_id}` | escaped model and question path; updated model, `question_in_use` refusal | `test_scoring_client.py`, toolkit standard tests | Not exercised live |
+| `POST /v1/calibrate` | model_id, JSON/CSV labeled records with the same minima as creation, add_questions and unique remove_questions; job ID and row count | `test_scoring_client.py`, `test_lifecycle_runner.py` | Separate synthetic lifecycle |
 | `GET /v1/jobs/{job_id}` | escaped job path; identity, complete flag, typed failure; explicit wait helpers | `test_scoring_client.py`, checkpoint-resume test | Creation and calibration polling |
 
 Local JSON validation covers finite values, record size, overall request size,
-required labels/fields, and score-ID/description lengths. CSV shape and labels
+required labels/fields, and score-ID, name, criteria and question lengths. CSV shape and labels
 are checked locally, but provider coercion, dotted-column expansion, and the
 resulting record size are server checks. Schema compatibility with a remote model
 is also server-side. Multipart file upload, MCP, OAuth, account administration,
@@ -26,7 +31,7 @@ and retention tools are outside this REST integration's scope.
 | Failure or interface | Evidence |
 | --- | --- |
 | Schema mismatch, missing models/jobs, duplicate score IDs, calibration already running | Sync/async provider-error tests preserve status/type/param |
-| Ambiguous write timeout, 429/503 on writes | Single-attempt tests for all three write operations |
+| Ambiguous write timeout, 429/503 on writes | Single-attempt tests for every write operation, including question changes and deletion |
 | Read retries, invalid JSON, wrong score/model/job identity, invalid score range/type | Transport/response tests in `test_scoring_client.py` and `test_api_coverage.py` |
 | Pending, completed, failed jobs, deadline expiry, sync/async cancellation | Job-wait tests; no new poll after cancellation |
 | Connection ownership, secret references and default error redaction | Client, classifier and scorer tests; injected clients remain open |
@@ -87,9 +92,11 @@ runs this check when the repository secret is configured and skips it otherwise.
 
 This is an intentional remote write test, **not** a default CI or daily smoke test.
 It creates one persistent model from 100 synthetic examples (50 of each label),
-waits for readiness, lists it, scores two records with distinct generated IDs,
-submits both outcomes, and waits for calibration. It never accepts a production
-model ID. Imports and offline tests perform no remote writes.
+waits for readiness, lists it, reads it with its questions, scores two records with
+distinct generated IDs (the second asking for the questions behind the score),
+calibrates it with the same labeled records, waits for calibration, and archives it.
+It never accepts a production model ID. Imports and offline tests perform no remote
+writes, and the runner never deletes anything.
 
 After authorizing the run, use a new evidence path:
 
@@ -110,8 +117,9 @@ flag alone is insufficient. PR CI and the daily workflow never select this suite
 
 Budget and effects:
 
-- One creation, one listing, two scoring writes, one calibration: five non-poll
-  requests plus at least one poll for each job (seven total minimum).
+- One creation, one listing, one read, two scoring writes, one calibration, one
+  archive: seven non-poll requests plus at least one poll for each job (nine total
+  minimum).
 - Each job waits at most 900 seconds with 30-second polling. At most 30 polls per
   job under that deadline: up to 65 HTTP attempts for a completed run; no automatic
   HTTP retries. Typical creation is documented as 5–10 minutes, but can vary.
@@ -126,17 +134,27 @@ Budget and effects:
   failure leaves the attempt pending for reconciliation; it is never retried
   automatically. Existing files are never overwritten. Store evidence according
   to your project policy.
-- Finic documents no deletion endpoint. A model remains after success or failure.
-  A deadline or interrupted write does not authorize creating another model.
-  Inspect the saved IDs or the Finic dashboard before deciding what to do next.
+- The run archives the model it created rather than deleting it, so it stops
+  scoring without destroying evidence. Finic does document a deletion endpoint and
+  the package exposes it, but it is irreversible and needs an admin's key, so the
+  runner never calls it. A model therefore remains after success or failure. A
+  deadline or interrupted write does not authorize creating another model. Inspect
+  the saved IDs or the Finic dashboard before deciding what to do next.
 
-Explicit runtime checks validate contracts, identities, score range, matched
-outcomes, and job success, including under `python -O` / `PYTHONOPTIMIZE=1`.
-Offline regressions verify optimized execution still polls calibration and rejects
-invalid outcomes, and that first/second score timeouts retain the attempted IDs.
+Explicit runtime checks validate contracts, identities, score range, the calibrated
+row count, archiving, and job success, including under `python -O` /
+`PYTHONOPTIMIZE=1`. Offline regressions verify optimized execution still polls
+calibration and rejects invalid outcomes, and that first/second score timeouts
+retain the attempted IDs.
 The checks do not require exact scores or claim accuracy.
 
 ## Recorded provider validation
+
+**That recorded run predates the current endpoints.** It exercised `/v1/decide`,
+`/v1/scores` and the score-ID form of calibration, which the package no longer
+calls. It stands as a record of what was observed on the date given, and it is not
+evidence for the lifecycle the runner performs today. A fresh authorized run is
+needed before the current flow can be described as live-verified.
 
 On 2026-10-27, an explicitly authorized run of `scripts/live_lifecycle.py` passed
 against Finic using Python 3.12. It completed in about 97 seconds and made 10 HTTP

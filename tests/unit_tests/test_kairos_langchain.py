@@ -90,7 +90,7 @@ def test_kairos_runnable_works_with_pinned_sdk_without_network():
     assert result.decision == "approve"
     assert result.probability == 0.12
     assert requests[0][0] == "POST"
-    assert urlsplit(requests[0][1]).path == "/v1/decide"
+    assert urlsplit(requests[0][1]).path == "/v1/decide"  # The Kairos SDK's own path, not ours.
     assert requests[0][2]["Authorization"] == "Bearer synthetic-key"
     assert requests[0][3]["action"] == "transfer"
     assert requests[0][3]["entities"] == {"user": "user_1"}

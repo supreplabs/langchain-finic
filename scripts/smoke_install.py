@@ -59,7 +59,7 @@ def main():
 
         def kairos_transport(method, url, headers, body, timeout):
             assert method == "POST"
-            assert url.endswith("/v1/decide")
+            assert url.endswith("/v1/ask")
             assert headers["Authorization"] == "Bearer synthetic-kairos-key"
             assert json.loads(body)["action"] == "synthetic_action"
             return 200, b'{"decision":"review","risk_score":55}', {}

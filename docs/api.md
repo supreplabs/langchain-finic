@@ -18,7 +18,7 @@ See the [usage guide](usage.md) for resource lifetime and invocation behavior.
 
 ::: langchain_finic.client.FinicClient
     options:
-      members: [__init__, decide, adecide, score, ascore, create_score, acreate_score, list_scores, alist_scores, calibrate, acalibrate, get_job_status, aget_job_status, wait_for_job, await_job, close, aclose]
+      members: [__init__, decide, adecide, score, ascore, create_scoring_model, acreate_scoring_model, list_scoring_models, alist_scoring_models, get_scoring_model, aget_scoring_model, update_scoring_model, aupdate_scoring_model, delete_scoring_model, adelete_scoring_model, add_questions, aadd_questions, remove_question, aremove_question, calibrate, acalibrate, get_job_status, aget_job_status, wait_for_job, await_job, close, aclose]
 
 ::: langchain_finic.client.FinicError
 
@@ -50,7 +50,7 @@ Requires `langchain-finic[middleware]`.
 
 ::: langchain_finic.scoring_models
     options:
-      members: [ScoringInput, ScoringRequest, ScoringResponse, CreateScoreRequest, CreateScoreResponse, CalibrationRequest, CalibrationResponse, ScoreModel, ListScoresResponse, JobStatus, JobFailure]
+      members: [ScoringInput, ScoringRequest, ScoringResponse, ScoredQuestion, CreateScoringModelRequest, CreateScoringModelResponse, UpdateScoringModelRequest, DeleteScoringModelResponse, AddQuestionsRequest, AddQuestionsResponse, AddedQuestion, CalibrationRequest, CalibrationResponse, ScoringModel, ScoringModelDetail, ScoringModelQuestion, ListScoringModelsResponse, JobStatus, JobFailure]
 
 ## Scoring Runnable and toolkit
 

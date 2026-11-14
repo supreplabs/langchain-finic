@@ -7,7 +7,13 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from langchain_finic import CreateScoreRequest, FinicClient, FinicError, JobStatus, ScoringRequest
+from langchain_finic import (
+    CreateScoringModelRequest,
+    FinicClient,
+    FinicError,
+    JobStatus,
+    ScoringRequest,
+)
 
 
 @pytest.mark.parametrize("asynchronous", [False, True])
@@ -68,18 +74,24 @@ def test_json_size_boundary_and_ignored_label():
 
 @pytest.mark.parametrize(
     "field,value",
-    [("score_id", "x" * 201), ("score_id", " "), ("skip_schema_validation", "true"), ("update_schema", 1)],
+    [
+        ("score_id", "x" * 201),
+        ("score_id", " "),
+        ("skip_schema_validation", "true"),
+        ("update_schema", 1),
+        ("include_questions", "yes"),
+    ],
 )
 def test_scoring_field_boundaries(field, value):
     with pytest.raises(ValidationError):
         ScoringRequest.model_validate({"model_id": "m", "score_id": "s", "data": {"x": 1}, field: value})
 
 
-def test_description_boundary():
+def test_criteria_boundary():
     rows = [{"x": i, "is_bad": i % 2} for i in range(100)]
-    assert len(CreateScoreRequest(data=rows, description="x" * 4000).description) == 4000
+    assert len(CreateScoringModelRequest(name="M", data=rows, criteria="x" * 4000).criteria) == 4000
     with pytest.raises(ValidationError):
-        CreateScoreRequest(data=rows, description="x" * 4001)
+        CreateScoringModelRequest(name="M", data=rows, criteria="x" * 4001)
 
 
 @pytest.mark.parametrize("asynchronous", [False, True])
