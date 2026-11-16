@@ -154,3 +154,7 @@ Default tests run offline with mock providers. Report bugs through
 through [private security reporting](https://github.com/supreplabs/langchain-finic/blob/main/SECURITY.md).
 
 Released under the [MIT license](https://github.com/supreplabs/langchain-finic/blob/main/LICENSE). See the [changelog](https://github.com/supreplabs/langchain-finic/blob/main/CHANGELOG.md) for version history.
+
+Obtain a Finic API key through your [Finic account](https://finic.ai/) before
+running live examples. Check your account access and credits; host chat models
+use separate provider credentials.
