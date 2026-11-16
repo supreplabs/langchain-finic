@@ -16,6 +16,7 @@ nav:
       - LangGraph fraud review: tutorials/langgraph-review.md
       - Finic and a chat model with LangGraph: tutorials/finic-langgraph-host-model.md
       - Disposable scoring trial: tutorials/disposable-scoring.md
+      - Public dataset scoring: tutorials/public-dataset-scoring.md
   - Developer trial kit: trial-kit.md
   - Usage and configuration: usage.md
   - Testing applications offline: testing.md
