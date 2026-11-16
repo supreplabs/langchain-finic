@@ -137,3 +137,46 @@ def test_relative_documentation_links_resolve():
             if "://" in href or href.startswith("#"):
                 continue
             assert (page.parent / href.split("#")[0]).exists(), (page.name, href)
+
+
+@pytest.mark.asyncio
+async def test_documented_score_reconciliation_does_not_replay_failed_writes():
+    from langchain_finic import FinicScorer
+
+    calls = []
+
+    def handle(request):
+        body = json.loads(request.content)
+        calls.append(body["score_id"])
+        if body["score_id"] == "failed":
+            return httpx.Response(409)
+        return httpx.Response(
+            200,
+            json={
+                "model_id": body["model_id"],
+                "score_id": body["score_id"],
+                "score": 200,
+                "request_id": "req_test",
+            },
+        )
+
+    blocks = re.findall(r"```python\n(.*?)\n```", (ROOT / "docs/scoring.md").read_text(), re.DOTALL)
+    namespace = {}
+    for block in blocks:
+        if "async def score_records(" in block or "async def reconcile_scores(" in block:
+            exec(compile(block, "docs/scoring.md:reconciliation", "exec"), namespace)
+    namespace["FinicScorer"] = lambda **kwargs: FinicScorer(
+        **kwargs, api_key="test", async_transport=httpx.MockTransport(handle)
+    )
+    results = await namespace["reconcile_scores"](
+        "scm_test",
+        [
+            {"score_id": "failed", "data": {"amount": 1}},
+            {"score_id": "ok", "data": {"amount": 2}},
+        ],
+    )
+    assert results == [
+        {"score_id": "failed", "status": "needs_reconciliation", "error_type": "FinicError"},
+        {"score_id": "ok", "status": "scored", "score": 200},
+    ]
+    assert sorted(calls) == ["failed", "ok"]

@@ -303,3 +303,66 @@ def test_scorer_tool_preserves_normalized_evidence(binding, asynchronous, messag
     assert all(
         call["model_id"] == ("scm_other" if binding == "configurable" else "scm_test") for call in calls
     )
+
+
+@pytest.mark.parametrize("return_exceptions", [False, True])
+def test_abatch_error_lifetime_and_per_record_reconciliation(return_exceptions):
+    from langchain_finic import FinicError
+
+    async def run():
+        second_started = asyncio.Event()
+        queued_started = asyncio.Event()
+        all_started = asyncio.Event()
+        release = asyncio.Event()
+        requests = []
+        workers = set()
+
+        async def handle(request):
+            index = int(json.loads(request.content)["score_id"])
+            requests.append(index)
+            workers.add(asyncio.current_task())
+            if len(requests) == 6:
+                all_started.set()
+            if index == 0:
+                await second_started.wait()
+                return httpx.Response(409)
+            if index == 1:
+                second_started.set()
+            else:
+                queued_started.set()
+            await release.wait()
+            return response(request)
+
+        async with FinicScorer(
+            model_id="scm_test", api_key="test", async_transport=httpx.MockTransport(handle)
+        ) as model:
+            batch = asyncio.create_task(
+                model.abatch(
+                    [value(i) for i in range(6)],
+                    {"max_concurrency": 2},
+                    return_exceptions=return_exceptions,
+                )
+            )
+            try:
+                await asyncio.wait_for(queued_started.wait(), 2)
+                if return_exceptions:
+                    assert not batch.done()
+                else:
+                    with pytest.raises(FinicError):
+                        await asyncio.wait_for(asyncio.shield(batch), 2)
+                # Only two blocked survivors can have started; the other writes
+                # remain queued even when the caller has already received an error.
+                assert set(requests) == {0, 1, 2}
+            finally:
+                release.set()
+                await asyncio.wait_for(all_started.wait(), 2)
+                await asyncio.gather(*workers, return_exceptions=True)
+                outcome = (await asyncio.gather(batch, return_exceptions=True))[0]
+            assert sorted(requests) == list(range(6))
+            if return_exceptions:
+                assert isinstance(outcome[0], FinicError)
+                assert [result.score_id for result in outcome[1:]] == [str(i) for i in range(1, 6)]
+            else:
+                assert isinstance(outcome, FinicError)
+
+    asyncio.run(run())
