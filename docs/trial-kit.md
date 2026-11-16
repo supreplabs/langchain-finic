@@ -1,4 +1,4 @@
-# langchain-finic 0.1.0b5 trial kit
+# langchain-finic 0.1.0rc1 trial kit
 
 Purpose: reproduce developer onboarding and migration tasks, record actual results,
 and distinguish observed execution from static review. Simulated agent sessions
