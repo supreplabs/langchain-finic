@@ -196,6 +196,29 @@ def review_with_agent(chat_model: BaseChatModel):
         }]})
 ```
 
+For a complete host setup, install `langchain>=1,<2` and the provider integration
+alongside `langchain-finic`. For example, with an OpenAI account:
+
+```bash
+pip install 'langchain-finic==0.1.0b3' 'langchain>=1,<2' langchain-openai
+export FINIC_API_KEY='your_finic_key'
+export OPENAI_API_KEY='your_host_key'
+```
+
+```python
+from langchain.chat_models import init_chat_model
+
+if __name__ == "__main__":
+    chat_model = init_chat_model("openai:YOUR_AVAILABLE_MODEL")
+    result = review_with_agent(chat_model)
+    print(result["messages"])
+```
+
+Choose an account-accessible model that supports tool calls. The generic Finic tool
+lets the host supply questions for each call; it does not reuse a previous Python
+request. For fixed application criteria, wrap `classifier.invoke()` in an
+application tool that constructs the questions itself.
+
 ## Agent middleware
 
 ```bash

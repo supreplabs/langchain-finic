@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Require explicit schema capability grants for toolkit scoring and hide ungranted flags.
+- Diagnose legacy score-ID-only calibration payloads and clarify onboarding, score evidence, and lifecycle migration.
+- Add a reusable developer trial kit for recording human or simulated feedback.
+
 ## 0.1.0b3
 
 - Cover the current Grayson ask, scoring-model lifecycle, and calibration API with typed sync/async methods.
