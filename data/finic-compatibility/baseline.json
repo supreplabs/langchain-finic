@@ -15,7 +15,7 @@
     "GET /v1/jobs/{job_id}": {
       "digest": "6a7040fc7e91eab3fa993e556124a2d5bfb744d516e54052f2e02e639fce80b2",
       "link": "/reference/get-job-status",
-      "note": "Job status is exposed with sync and async clients and tested response identity.",
+      "note": "Completion/error status is exposed with sync and async clients and tested response identity. Optional progress metadata is a provider proposal tracked in #109; review job-page changes before adding typed fields.",
       "status": "supported"
     },
     "GET /v1/scoring_models": {

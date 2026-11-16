@@ -117,7 +117,22 @@ Record these fields in an issue comment; omit credentials, raw records and respo
 - Holdout selection rule, size, class counts, preselected threshold and rationale:
 - Initial trained / recalibrated confusion matrix, Brier error and training-prior baseline:
 - Question counts; limitations and distribution shift:
+- Job wait observations: local elapsed seconds and `completed` / `wait_raised`;
+  exception type if raised. A raised wait may be a local timeout, not remote failure:
 - Trial status, cleanup status, any unresolved operation and reconciliation outcome:
 - Steps actually executed; reviewer type and confirmation, if applicable:
 
 Local ledgers contain operational IDs; inspect and redact them before sharing.
+
+
+### Interpreting job waits
+
+The lifecycle ledger's `job_waits` entries describe local calls to the wait helper.
+`completed` means the helper observed terminal success; `wait_raised` records an
+exception, not a provider stage. For a failed or timed-out wait, inspect the saved
+job ID and current completion/error state before deciding on cleanup. A successful
+cleanup after a failed wait does not turn that trial into a successful evaluation.
+
+Finic currently reports completion/failure, not percentage, stage or ETA. Display an
+indeterminate waiting indicator and measured elapsed time; do not derive progress
+from poll counts. See [job status and progress](../scoring.md#job-status-and-progress).
