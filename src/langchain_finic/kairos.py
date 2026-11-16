@@ -227,7 +227,7 @@ class KairosToolkit(BaseToolkit):
     ``decide`` is the default operation. Select event tracking and workflow execution
     explicitly because they write to Kairos. ``track`` only queues an event in the
     SDK's background sender; use ``flush`` when the application needs to wait for the
-    queue to drain before proceeding.
+    flush call to return. This does not confirm server delivery; monitor the SDK on_error callback.
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid", hide_input_in_errors=True)
@@ -258,7 +258,7 @@ class KairosToolkit(BaseToolkit):
             return self._kairos.run_workflow(data.pop("name"), data.pop("input"), **data)
         if operation == "flush":
             self._kairos.flush()
-            return {"flushed": True}
+            return {"flushed": True, "delivery": "unconfirmed"}
         raise ValueError(f"Unsupported Kairos operation: {operation}")
 
     async def _acall(self, operation: KairosOperation, request: BaseModel) -> Any:
@@ -279,7 +279,7 @@ class KairosToolkit(BaseToolkit):
             ),
             "track": (
                 "Queue an event in Kairos history. Delivery happens in the background; "
-                "select flush to wait for queued events."
+                "flush does not confirm server delivery."
             ),
             "track_and_decide": (
                 "Record the triggering event and ask its configured Kairos action for a decision in one call."
@@ -287,7 +287,10 @@ class KairosToolkit(BaseToolkit):
             "run_workflow": (
                 "Start a named Kairos workflow. This can trigger remote workflow actions; select explicitly."
             ),
-            "flush": "Wait for the caller-owned Kairos client's queued events to be sent.",
+            "flush": (
+                "Wait for the caller-owned Kairos SDK flush call to return. "
+                "Delivery remains unconfirmed; monitor the SDK on_error callback."
+            ),
         }
 
         def invoke(**kwargs: Any) -> Any:

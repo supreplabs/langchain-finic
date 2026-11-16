@@ -74,14 +74,46 @@ agent = create_agent(model=host_chat_model, tools=tools)
 Available operations are `decide`, `track`, `track_and_decide`, `run_workflow`,
 and `flush`. `track` queues an event for the SDK's background sender and reports
 that it was queued; it does not confirm server delivery. Select `flush` when the
-application needs to wait for queued events to be sent. `track_and_decide` records
+application needs to wait for the SDK flush call to return. `track_and_decide` records
 the triggering event and requests its action decision in one call. All async tool
 methods offload the synchronous SDK call to a worker thread.
 
-Tools expose Pydantic argument schemas, return JSON-safe results, and propagate SDK
-errors. The toolkit borrows the client; call `shutdown()` on it when the application
+Tools expose Pydantic argument schemas and return JSON-safe results. Exceptions
+raised by an SDK method propagate, but background event-delivery errors can instead
+be reported through the SDK `on_error` callback; `track` and `flush` returning
+normally does not establish successful delivery. The toolkit borrows the client; call `shutdown()` on it when the application
 stops. Do not let an agent select or execute a business outcome by itself: use the
 decision as input to your application's authorization, review, or escalation policy.
+
+## Event-delivery monitoring
+
+The flush tool returns `{"flushed": true, "delivery": "unconfirmed"}`. The existing
+`flushed` field means only that the SDK flush call returned, not that Kairos
+accepted all queued events. The additive `delivery` field makes this uncertainty
+explicit. Applications upgrading from earlier versions must not treat `flushed`
+as a delivery acknowledgement. The SDK can report a rejected batch through
+`on_error` and return normally; absence of a callback is not an acknowledgement.
+
+Configure monitoring when constructing the caller-owned SDK client:
+
+```python
+import logging
+from kairos import Kairos
+
+logger = logging.getLogger(__name__)
+
+def record_delivery_error(error: Exception) -> None:
+    # This callback may run in a worker thread. Keep monitoring thread-safe and
+    # avoid logging raw event payloads, credentials, or response error bodies.
+    logger.error("Kairos delivery error: %s", type(error).__name__)
+
+def monitored_client(api_key: str) -> Kairos:
+    return Kairos(api_key=api_key, on_error=record_delivery_error)
+```
+
+Keep durable application records when confirmed delivery matters. Reconcile
+uncertain outcomes using supported service interfaces before retrying writes;
+the adapter does not inspect SDK private queues or replace your error callback.
 
 ## Composition
 

@@ -169,7 +169,7 @@ async def test_kairos_toolkit_async_track_and_decide_and_flush():
 
     assert queued == {"queued": True, "delivery": "background"}
     assert decision["decision"] == "review"
-    assert flushed == {"flushed": True}
+    assert flushed == {"flushed": True, "delivery": "unconfirmed"}
     assert [call[0] for call in client.calls] == ["track", "track_and_decide", "flush"]
 
 
@@ -185,3 +185,40 @@ def test_kairos_toolkit_runs_selected_workflow_and_rejects_bad_selection():
         KairosToolkit(client=client, operations=("decide", "decide"))
     with pytest.raises(ValueError):
         KairosToolkit(client=client, operations=("delete",))
+
+
+@pytest.mark.parametrize("status", [200, 401, 503])
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_flush_reports_unconfirmed_delivery_with_real_sdk(status, asynchronous):
+    import asyncio
+
+    kairos_sdk = pytest.importorskip("kairos")
+
+    errors = []
+    requests = []
+
+    def transport(method, url, headers, body, timeout):
+        requests.append((method, url))
+        return status, b'{"error":"rejected"}' if status != 200 else b"{}", {}
+
+    client = kairos_sdk.Kairos(
+        api_key="fake",
+        transport=transport,
+        flush_interval=0,
+        max_retries=0,
+        on_error=errors.append,
+    )
+    try:
+        client.track("login", {"user_id": "fictional"})
+        tool = KairosToolkit(client=client, operations=("flush",)).get_tools()[0]
+        result = asyncio.run(tool.ainvoke({})) if asynchronous else tool.invoke({})
+        assert result == {"flushed": True, "delivery": "unconfirmed"}
+        assert len(requests) == 1
+        assert urlsplit(requests[0][1]).path == "/v1/events"
+        if status == 200:
+            assert not errors
+        else:
+            assert len(errors) == 1
+            assert errors[0].status == status
+    finally:
+        client.shutdown()
