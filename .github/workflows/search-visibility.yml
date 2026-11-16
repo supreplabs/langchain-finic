@@ -1,7 +1,5 @@
 name: Search visibility
 on:
-  schedule:
-    - cron: '23 5 * * *'
   workflow_dispatch:
 permissions:
   contents: read
@@ -23,7 +21,7 @@ jobs:
         run: |
           if [ -z "$WIF_PROVIDER" ] || [ -z "$SERVICE_ACCOUNT" ]; then
             echo 'ready=false' >> "$GITHUB_OUTPUT"
-            echo 'Search Console access is not configured; see SEARCH_VISIBILITY.md.' >> "$GITHUB_STEP_SUMMARY"
+            echo 'Search Console access is not configured; see https://github.com/supreplabs/langchain-finic/issues/56.' >> "$GITHUB_STEP_SUMMARY"
           else
             echo 'ready=true' >> "$GITHUB_OUTPUT"
           fi

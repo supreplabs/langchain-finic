@@ -16,8 +16,9 @@ After publishing meaningful documentation changes:
    Submission and inspection do not guarantee indexing or ranking.
 2. Record impressions, clicks, queries, and indexed URLs in Search Console over time;
    compare PyPI download trends separately. Results may take time, and do not prove
-   causality. Use [SEARCH_VISIBILITY.md](SEARCH_VISIBILITY.md) for monitoring setup and
-   the tracking issue for observations. Do not add analytics or expose customer data.
+   causality. Historical monitoring observations are retained in
+   [issue #56](https://github.com/supreplabs/langchain-finic/issues/56). The search
+   visibility workflow remains available for manual runs. Do not expose customer data.
 3. Consider submitting the independent integration through the current
    [LangChain listing process](https://docs.langchain.com/oss/python/contributing/publish-langchain);
    see [LANGCHAIN_LISTING.md](LANGCHAIN_LISTING.md). A Finic documentation listing
