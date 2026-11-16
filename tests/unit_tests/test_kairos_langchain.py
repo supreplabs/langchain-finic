@@ -192,7 +192,7 @@ def test_kairos_toolkit_runs_selected_workflow_and_rejects_bad_selection():
 def test_flush_reports_unconfirmed_delivery_with_real_sdk(status, asynchronous):
     import asyncio
 
-    from kairos import Kairos
+    kairos_sdk = pytest.importorskip("kairos")
 
     errors = []
     requests = []
@@ -201,7 +201,7 @@ def test_flush_reports_unconfirmed_delivery_with_real_sdk(status, asynchronous):
         requests.append((method, url))
         return status, b'{"error":"rejected"}' if status != 200 else b"{}", {}
 
-    client = Kairos(
+    client = kairos_sdk.Kairos(
         api_key="fake",
         transport=transport,
         flush_interval=0,
