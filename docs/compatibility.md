@@ -4,8 +4,8 @@ description: Compatibility, support, and versioning policy for the langchain-fin
 
 # Compatibility and support
 
-The published package is currently beta. This policy identifies the supported
-surface and the commitments for beta and the first final `0.1.x` series.
+The published package is currently a release candidate. This policy identifies the
+supported surface and the commitments for prereleases and the first final `0.1.x` series.
 
 ## Public imports
 
@@ -109,9 +109,9 @@ dependency lower bounds will be stated in release notes.
 
 ## Version and deprecation policy
 
-During alpha and beta, proposed breaking changes require discussion and release
-notes with migration instructions. Beta is intended for API validation and user
-feedback; users should pin the tested prerelease in their application lockfile.
+During alpha, beta, and release-candidate testing, proposed breaking changes
+require discussion and release notes with migration instructions. Prereleases are
+intended for API validation and user feedback; users should pin the tested prerelease in their application lockfile.
 
 For the final `0.1.x` series, patch releases will preserve the documented public
 imports, accepted call signatures, required request/response fields, serialized

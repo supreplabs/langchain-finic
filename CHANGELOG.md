@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0rc1
+
+- Release candidate based on the verified 0.1.0b5 release, with identical package implementation and tests.
+- Update installation pins, maturity wording, and security/support guidance for release-candidate testing; this remains a prerelease, not a production-stability claim.
+- Carry forward the 0.1.0b5 fixes and migration guidance: Kairos flush reports `delivery="unconfirmed"`, scorer tools preserve message normalization, and async write recovery requires per-record reconciliation.
+- Independent-user acceptance and the final 0.1.0 go/no-go decision remain tracked in issue #12.
+
 ## 0.1.0b5
 
 - Preserve nested LangChain message normalization in direct, bound, and configurable scorer tools across sync and async calls (#116).

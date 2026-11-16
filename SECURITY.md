@@ -1,6 +1,7 @@
 # Security
 
-During alpha and beta, security fixes target the latest published prerelease;
+During alpha, beta, and release-candidate testing, security fixes target the
+latest published prerelease;
 older prereleases are not maintained. Once a final `0.1.x` series is published,
 fixes target its latest patch while that series is maintained. Users should upgrade
 to that patch; fixes are not backported to every earlier patch or prerelease.
