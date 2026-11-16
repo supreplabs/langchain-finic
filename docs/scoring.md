@@ -153,7 +153,9 @@ from langchain_finic import FinicScorer
 async def score_records(model_id: str, records: list[dict]):
     async with FinicScorer(model_id=model_id) as scorer:
         # Each input contains its own unique score_id and data.
-        return await scorer.abatch(records, {"max_concurrency": 2})
+        return await scorer.abatch(
+            records, {"max_concurrency": 2}, return_exceptions=True
+        )
 ```
 
 Direct scorer batches default to five concurrent calls; `max_concurrency`
@@ -162,6 +164,41 @@ so pass an explicit concurrency limit to the outer chain. Concurrency is not a
 requests-per-second limiter: Finic's organization rate and quotas still apply.
 Batch results keep input order. `return_exceptions=True` preserves per-record
 failures; a batch is not atomic and cancellation cannot retract accepted writes.
+By default, `abatch(..., return_exceptions=False)` follows LangChain's standard
+behavior: the first exception reaches the caller while sibling calls and queued
+writes may continue. Receiving that exception does not mean the batch is finished.
+Do not immediately retry the batch or close a borrowed client that remaining
+calls may still use. The default is retained for LangChain compatibility.
+
+Use `return_exceptions=True`, as in `score_records` above, to await all ordinary
+success/failure outcomes before closing the client. Match each result to the
+input at the same index:
+
+```python
+async def reconcile_scores(model_id: str, records: list[dict]) -> list[dict]:
+    results = await score_records(model_id, records)
+    observations = []
+    for record, result in zip(records, results, strict=True):
+        if isinstance(result, Exception):
+            observations.append({
+                "score_id": record["score_id"],
+                "status": "needs_reconciliation",
+                "error_type": type(result).__name__,
+            })
+        else:
+            observations.append({
+                "score_id": result.score_id,
+                "status": "scored",
+                "score": result.score,
+            })
+    return observations
+```
+
+This records outcomes without automatically replaying failed writes. An error can
+represent an ambiguous server-side outcome; retain score IDs and resolve that
+uncertainty before resubmission. `return_exceptions=True` does not suppress external
+task cancellation or guarantee delivery after cancellation.
+
 Streaming yields one complete result. Do not put automatic retry wrappers around
 write operations without considering duplicate IDs and ambiguous outcomes.
 
