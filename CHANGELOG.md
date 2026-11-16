@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.0b5
+
+- Preserve nested LangChain message normalization in direct, bound, and configurable scorer tools across sync and async calls (#116).
+- Add `delivery="unconfirmed"` to Kairos flush tool results. The retained `flushed` field means only that the SDK call returned, not server acknowledgement; monitor SDK `on_error` callbacks for delivery failures (#117).
+- Explain outstanding scoring writes after early async batch errors and provide a tested per-record reconciliation example using `return_exceptions=True` (#118).
+- Document Kairos async cancellation, remote-write uncertainty, and worker/client shutdown responsibilities (#119).
+- Add 28 offline regression cases covering normalization, real-SDK delivery failures, batch reconciliation, and cancellation. Preserve base-only and minimum-dependency coverage without requiring the optional Kairos SDK.
+
 ## 0.1.0b4
 
 - Require explicit schema-update and schema-bypass grants for toolkit scoring; preserve LangChain message normalization in sync and async tools.
