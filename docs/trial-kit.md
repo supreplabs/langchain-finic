@@ -13,10 +13,17 @@ Task B: Follow docs/scoring.md and examples/lifecycle_graph.py to discover model
 request question evidence, migrate calibration records, and construct a checkpointed
 workflow. Check score tool schema privileges and legacy payload diagnostics.
 
-For this local simulation: inspect source and docs only. Do not read .env, access
-credentials, install packages, call APIs, modify source, or publish comments.
-Report exact file/line references and severity. Confirm which earlier findings
-are resolved and which remain. Never claim installation or live API success.
+Choose and record the execution mode before starting:
+
+- Static review: inspect docs/source without credentials or API calls.
+- Authorized live trial: install a wheel outside the checkout in a fresh environment;
+  load configured credentials privately and disable external tracing. Use fictional
+  inputs, `max_attempts=1`, a request budget, and sanitized evidence. Never print
+  environment files, headers or raw sensitive responses. Record whether the wheel
+  is published or contains unreleased fixes.
+
+For either mode, report exact references, observed results, and remaining limits.
+Do not claim execution for steps only inspected.
 
 For a later human-run trial, create a fresh venv with Python >=3.11, install the
 exact PyPI version, configure FINIC_API_KEY outside recorded logs, and run fictional
@@ -33,3 +40,20 @@ Feedback template:
 
 A release candidate can use these findings as maintainer quality evidence.
 Independent-user acceptance requires separately recorded actual user feedback.
+
+## Additional live scenarios
+
+1. Submit a context-only decision and validate response identity and question keys.
+2. Compose input mapping, classifier and output mapping through LCEL.
+3. Invoke the generic tool and parse its result as `DecisionResponse`.
+4. Submit an empty questions mapping and verify rejection before HTTP.
+5. Batch three distinct questions with concurrency two; check order, response
+   identities and unique request IDs.
+6. List existing scoring models and record counts without customer/model content.
+7. Retrieve an existing model and compare its identity with the listing. If there
+   are no models, record a skip rather than creating one implicitly.
+
+Record requests, elapsed time, status and exception type for each scenario.
+Model creation, calibration, schema updates and deletion require a separate
+explicitly authorized write plan. A successful small sample does not establish
+accuracy, throughput, latency guarantees or production resilience.
