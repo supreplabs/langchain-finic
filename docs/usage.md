@@ -200,7 +200,7 @@ For a complete host setup, install `langchain>=1,<2` and the provider integratio
 alongside `langchain-finic`. For example, with an OpenAI account:
 
 ```bash
-pip install 'langchain-finic==0.1.0b3' 'langchain>=1,<2' langchain-openai
+pip install 'langchain-finic==0.1.0b4' 'langchain>=1,<2' langchain-openai
 export FINIC_API_KEY='your_finic_key'
 export OPENAI_API_KEY='your_host_key'
 ```
@@ -222,7 +222,7 @@ application tool that constructs the questions itself.
 ## Agent middleware
 
 ```bash
-pip install 'langchain-finic[middleware]==0.1.0b3'
+pip install 'langchain-finic[middleware]==0.1.0b4'
 # Also install the provider package for your host chat models.
 ```
 
