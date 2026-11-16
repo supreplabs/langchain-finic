@@ -251,3 +251,55 @@ def test_cancel_completion_iterator_stops_queued_writes():
             assert active == 0
 
     asyncio.run(run())
+
+
+@pytest.mark.parametrize("binding", ["direct", "bind", "config", "configurable"])
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize("messages", [False, True])
+def test_scorer_tool_preserves_normalized_evidence(binding, asynchronous, messages):
+    from langchain_core.messages import HumanMessage
+
+    calls = []
+
+    def handle(request):
+        calls.append(json.loads(request.content))
+        return response(request)
+
+    model = FinicScorer(
+        model_id="scm_test",
+        api_key="test",
+        transport=httpx.MockTransport(handle),
+        async_transport=httpx.MockTransport(handle),
+    )
+    wrapped = {
+        "direct": model,
+        "bind": model.bind(),
+        "config": model.with_config(tags=["regression"]),
+        "configurable": model.configurable_fields(model_id=ConfigurableField(id="model")).with_config(
+            configurable={"model": "scm_other"}
+        ),
+    }[binding]
+    expected = {"evidence": {"messages": [{"role": "user", "content": "hello"}]}}
+    data = {"evidence": {"messages": [HumanMessage(content="hello")]}} if messages else expected
+    tool = wrapped.as_tool()
+
+    async def run():
+        async with model:
+            await wrapped.ainvoke({"score_id": "direct", "data": data})
+            await tool.ainvoke({"score_id": "tool", "data": data})
+            with pytest.raises(ValueError):
+                await tool.ainvoke({"score_id": "invalid", "data": {"value": object()}})
+
+    if asynchronous:
+        asyncio.run(run())
+    else:
+        with model:
+            wrapped.invoke({"score_id": "direct", "data": data})
+            tool.invoke({"score_id": "tool", "data": data})
+            with pytest.raises(ValueError):
+                tool.invoke({"score_id": "invalid", "data": {"value": object()}})
+    assert [call["score_id"] for call in calls] == ["direct", "tool"]
+    assert all(call["data"] == expected for call in calls)
+    assert all(
+        call["model_id"] == ("scm_other" if binding == "configurable" else "scm_test") for call in calls
+    )

@@ -15,10 +15,11 @@ from langchain_core.runnables.config import ensure_config, get_config_list
 from langchain_core.runnables.utils import AnyConfigurableField
 from langchain_core.tools import BaseTool, StructuredTool
 from langsmith.run_helpers import get_current_run_tree
-from pydantic import BaseModel, Field, StrictBool, TypeAdapter, create_model
+from pydantic import BaseModel, Field, StrictBool, TypeAdapter, create_model, field_validator
 
 from langchain_finic._binding import FinicBinding
 from langchain_finic._runnable import FinicRunnable
+from langchain_finic._state import normalize_state
 from langchain_finic.models import Text
 from langchain_finic.scoring_models import ScoringInput, ScoringRequest, ScoringResponse
 
@@ -73,7 +74,12 @@ class _ScorerToolConversion:
                 if key not in disabled
             }
             args_schema = create_model(
-                "FinicScoringToolInput", __config__=ScoringInput.model_config, **fields
+                "FinicScoringToolInput",
+                __config__=ScoringInput.model_config,
+                __validators__={
+                    "normalize_data": field_validator("data", mode="before")(normalize_state),
+                },
+                **fields,
             )
         runnable = cast(Runnable[ScoringInput, ScoringResponse], self)
         chain = runnable | RunnableLambda(lambda result: result.model_dump(mode="json"))
