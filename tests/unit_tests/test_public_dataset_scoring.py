@@ -153,3 +153,128 @@ async def test_live_budget_stops_requests_and_records_failure(recipe, monkeypatc
     report = json.loads((tmp_path / "execution.json").read_text())
     assert report["request_attempts"] == 2 and report["status"] == "failed"
     assert "test" not in json.dumps(report)
+
+
+@pytest.mark.parametrize("threshold", ["-1", "1001", "not-an-integer"])
+def test_invalid_threshold_is_rejected_before_preparation(recipe, monkeypatch, tmp_path, threshold):
+    monkeypatch.setenv("FINIC_API_KEY", "test")
+    with pytest.raises(SystemExit) as error:
+        recipe["main"](
+            [
+                "bank",
+                "--archive",
+                str(tmp_path / "absent.zip"),
+                "--output",
+                str(tmp_path / "out"),
+                "--live",
+                "--allow-remote-writes",
+                "--threshold",
+                threshold,
+            ]
+        )
+    assert error.value.code == 2
+    assert not (tmp_path / "out").exists()
+
+
+def test_live_missing_key_is_rejected_before_preparation(recipe, monkeypatch, tmp_path):
+    monkeypatch.delenv("FINIC_API_KEY", raising=False)
+    with pytest.raises(SystemExit) as error:
+        recipe["main"](
+            [
+                "bank",
+                "--archive",
+                str(tmp_path / "absent.zip"),
+                "--output",
+                str(tmp_path / "out"),
+                "--live",
+                "--allow-remote-writes",
+                "--threshold",
+                "500",
+            ]
+        )
+    assert error.value.code == 2
+    assert not (tmp_path / "out").exists()
+
+
+@pytest.mark.parametrize("live", [False, True])
+def test_existing_output_is_preserved_without_remote_execution(recipe, monkeypatch, tmp_path, live):
+    monkeypatch.setenv("FINIC_API_KEY", "test")
+    output = tmp_path / "out"
+    output.mkdir()
+    sentinel = output / "execution.json"
+    sentinel.write_text("existing evidence")
+    globals_ = recipe["main"].__globals__
+    monkeypatch.setitem(globals_, "prepare", lambda *_: ({}, {}))
+
+    def unexpected(*args, **kwargs):
+        pytest.fail("Existing output must block remote execution")
+
+    monkeypatch.setitem(globals_, "run_live", unexpected)
+    args = ["bank", "--archive", str(tmp_path / "unused.zip"), "--output", str(output)]
+    if live:
+        args += ["--live", "--allow-remote-writes", "--threshold", "500"]
+    with pytest.raises(FileExistsError):
+        recipe["main"](args)
+    assert list(output.iterdir()) == [sentinel]
+    assert sentinel.read_text() == "existing evidence"
+
+
+@pytest.mark.parametrize("dataset", ["bank", "shopper"])
+def test_label_polarity_matches_source_outcomes(recipe, tmp_path, monkeypatch, dataset):
+    archive = tmp_path / "source.zip"
+    archive_fixture(dataset, archive)
+    monkeypatch.setitem(
+        recipe["SOURCES"][dataset], "sha256", hashlib.sha256(archive.read_bytes()).hexdigest()
+    )
+    source = recipe["read_archive"](dataset, archive)
+    splits = recipe["split_rows"](dataset, source)
+    observed = set()
+    for records in splits.values():
+        for row in records:
+            original = source[row["source_row"]]
+            expected = original["y"] == "no" if dataset == "bank" else original["Revenue"] == "FALSE"
+            assert row["is_bad"] is expected
+            observed.add(expected)
+    assert observed == {False, True}
+
+
+def test_bank_duration_duplicates_removed_before_chronological_split(recipe):
+    source = [
+        dict(
+            contact="telephone",
+            month="may",
+            campaign="1",
+            pdays=str(i),
+            previous="0",
+            poutcome="unknown",
+            y="no" if i % 2 else "yes",
+            duration="10",
+        )
+        for i in range(10)
+    ]
+    source.insert(1, dict(source[0], duration="999"))
+    splits = recipe["split_rows"]("bank", source)
+    ids = {name: {row["source_row"] for row in records} for name, records in splits.items()}
+    assert ids == {"train": {0, 2, 3, 4, 5}, "calibration": {6, 7, 8}, "holdout": {9, 10}}
+    assert max(ids["train"]) < min(ids["calibration"]) < min(ids["holdout"])
+
+
+@pytest.mark.parametrize("dataset", ["bank", "shopper"])
+def test_csv_missing_required_columns_is_rejected(recipe, tmp_path, monkeypatch, dataset):
+    archive = tmp_path / "malformed.zip"
+    with zipfile.ZipFile(archive, "w") as outer:
+        if dataset == "bank":
+            inner = io.BytesIO()
+            with zipfile.ZipFile(inner, "w") as nested:
+                nested.writestr("bank-full.csv", "y;duration\nyes;20\n")
+            outer.writestr("bank.zip", inner.getvalue())
+        else:
+            outer.writestr("online_shoppers_intention.csv", "Revenue,PageValues\nTRUE,10\n")
+    # Exercise parsing after checksum verification, without weakening production pins.
+    monkeypatch.setitem(
+        recipe["SOURCES"][dataset], "sha256", hashlib.sha256(archive.read_bytes()).hexdigest()
+    )
+    output = tmp_path / "out"
+    with pytest.raises(KeyError):
+        recipe["main"]([dataset, "--archive", str(archive), "--output", str(output)])
+    assert not output.exists()
