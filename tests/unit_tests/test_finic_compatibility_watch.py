@@ -127,3 +127,27 @@ def test_invalid_baseline_never_claims_compatibility():
         watch.validate_baseline({"operations": {}})
     with pytest.raises(ValueError, match="status"):
         watch.validate_baseline({"operations": {"GET /v1/a": {"status": "typo"}}})
+
+
+def test_job_progress_addition_triggers_contract_review():
+    op = watch.Operation("get_job_status", "GET", "/v1/jobs/{job_id}", "/reference/get-job-status")
+    original = "# get_job_status\n## GET https://api.finic.ai/v1/jobs/{job_id}\ncomplete: boolean\n"
+    baseline = {
+        "operations": {
+            op.key: {
+                "status": "supported",
+                "link": op.link,
+                "digest": watch.page_digest(op, original),
+            }
+        }
+    }
+    changed = watch.Operation(
+        op.name,
+        op.method,
+        op.path,
+        op.link,
+        watch.page_digest(op, original + "progress.stage: optional string\n"),
+    )
+    findings = watch.assess({op.key: changed}, baseline)
+    assert len(findings) == 1
+    assert findings[0]["key"] == op.key and findings[0]["reason"] == "changed"

@@ -9,6 +9,7 @@ reconciliation; never restart a trial using a fresh ledger to bypass that state.
 
 import json
 from pathlib import Path
+from time import monotonic
 from uuid import uuid4
 
 from langchain_finic import (
@@ -87,9 +88,21 @@ async def run_trial(
     async def wait(job_id):
         ledger["active_job"] = job_id
         save()
-        await client.await_job(job_id, timeout=900, poll_interval=30)
-        ledger.pop("active_job")
-        save()
+        started = monotonic()
+        observation = {"job_id": job_id, "outcome": "waiting"}
+        ledger.setdefault("job_waits", []).append(observation)
+        try:
+            await client.await_job(job_id, timeout=900, poll_interval=30)
+        except BaseException as exc:
+            observation.update(outcome="wait_raised", error_type=type(exc).__name__)
+            raise
+        else:
+            observation["outcome"] = "completed"
+            ledger.pop("active_job")
+        finally:
+            # Local elapsed time is not provider progress or a completion estimate.
+            observation["elapsed_seconds"] = round(monotonic() - started, 3)
+            save()
 
     prior = sum(row["is_bad"] for row in training) / len(training)
     labels = [row["is_bad"] for row in holdout]

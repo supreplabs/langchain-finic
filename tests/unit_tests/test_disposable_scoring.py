@@ -120,3 +120,23 @@ async def test_invalid_holdout_fails_before_any_remote_creation(tmp_path, invali
     assert client.scores == []
     assert not client.deleted
     assert not path.exists()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", [None, "job"])
+async def test_wait_observations_do_not_invent_progress(tmp_path, failure):
+    path = tmp_path / "ledger.json"
+    client = Client(failure)
+    if failure:
+        with pytest.raises(RuntimeError):
+            await exercise(client, path)
+    else:
+        await exercise(client, path)
+    waits = json.loads(path.read_text())["job_waits"]
+    assert len(waits) == (1 if failure else 2)
+    for observation in waits:
+        assert observation["outcome"] == ("wait_raised" if failure else "completed")
+        assert observation["elapsed_seconds"] >= 0
+        assert not {"progress", "fraction", "stage", "eta"} & observation.keys()
+    if failure:
+        assert waits[0]["error_type"] == "RuntimeError"

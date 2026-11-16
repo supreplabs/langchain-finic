@@ -277,3 +277,21 @@ Inspect the returned model and question IDs after updates. Removal of questions
 used by a calibrated score requires calibration's `remove_questions`. The package
 does not establish concurrent scoring availability or whether criteria edits
 require recalibration; confirm these provider behaviors before scheduling changes.
+
+
+## Job status and progress
+
+The [current job reference](https://docs.finic.ai/reference/get-job-status) exposes
+`job_id`, `complete` and optional `error`; it explicitly does not report progress.
+`complete=True` with an error is failure. `wait_for_job()` and `await_job()` return
+only on terminal success and raise on terminal failure or a wait error. A timeout
+stops the local wait; it does not cancel the remote job or authorize replaying creation.
+
+Use an indeterminate waiting indicator and label local elapsed time as elapsed time.
+Do not show a computed percent or ETA from row counts, polls, or historical durations.
+The disposable trial records observed wait durations separately from cleanup status.
+
+An [upstream proposal](https://github.com/supreplabs/langchain-finic/blob/main/proposals/finic-job-progress.md)
+is tracked in [#109](https://github.com/supreplabs/langchain-finic/issues/109).
+Proposed fields are not supported API fields. The weekly compatibility check tracks
+changes to the job reference; typed progress support will follow a confirmed contract.
