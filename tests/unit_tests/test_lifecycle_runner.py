@@ -6,7 +6,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from langchain_finic import CreateScoreRequest, FinicClient, FinicError
+from langchain_finic import CreateScoringModelRequest, FinicClient, FinicError
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -20,7 +20,7 @@ def runner(optimize=0):
 
 def test_synthetic_examples_meet_provider_minima():
     examples = runner()["synthetic_examples"]()
-    assert len(CreateScoreRequest(data=examples).data) == 100
+    assert len(CreateScoringModelRequest(name="Synthetic", data=examples).data) == 100
     assert sum(item["is_bad"] for item in examples) == 50
 
 
@@ -48,7 +48,8 @@ def test_preserves_previous_evidence(monkeypatch, tmp_path):
 
 @pytest.mark.parametrize("optimize", [0, 1])
 @pytest.mark.parametrize(
-    "failure", [None, "creation", "calibration", "listing", "identity", "matching", "score1", "score2"]
+    "failure",
+    [None, "creation", "calibration", "listing", "identity", "calibration_rows", "score1", "score2"],
 )
 def test_lifecycle_sequence_and_evidence(failure, optimize, monkeypatch, tmp_path):
     module = runner(optimize)
@@ -59,7 +60,8 @@ def test_lifecycle_sequence_and_evidence(failure, optimize, monkeypatch, tmp_pat
     def handle(request):
         calls.append((request.method, request.url.path))
         payload = json.loads(request.content) if request.content else None
-        if request.url.path == "/v1/scores" and request.method == "POST":
+        if request.url.path == "/v1/scoring_models" and request.method == "POST":
+            assert payload["name"] == "langchain-finic synthetic integration check"
             assert len(payload["data"]) == 100
             return httpx.Response(
                 202, json={"model_id": "scm_new", "job_id": "job_creation", "request_id": "req_creation"}
@@ -70,17 +72,19 @@ def test_lifecycle_sequence_and_evidence(failure, optimize, monkeypatch, tmp_pat
             if job_id == "job_" + str(failure):
                 body["error"] = {"type": "internal_error", "message": "provider detail"}
             return httpx.Response(200, json=body)
-        if request.url.path == "/v1/scores":
+        if request.url.path == "/v1/scoring_models":
             return httpx.Response(
                 200,
                 json={
-                    "scores": [
+                    "scoring_models": [
                         {
                             "model_id": "scm_new",
                             "status": "training" if failure == "listing" else "ready",
+                            "name": "synthetic",
                             "criteria": "synthetic",
                             "created_at": "2026-10-27",
                             "calibrated_at": None,
+                            "archived_at": None,
                             "examples": 100,
                             "bad_rate": 0.5,
                             "scored": 0,
@@ -111,13 +115,13 @@ def test_lifecycle_sequence_and_evidence(failure, optimize, monkeypatch, tmp_pat
             )
         if request.url.path == "/v1/calibrate":
             assert payload["model_id"] == "scm_new"
-            assert [item["score_id"] for item in payload["data"]] == ids
+            assert len(payload["data"]) == 100
+            assert payload["data"][0]["is_bad"] is True
             return httpx.Response(
                 202,
                 json={
                     "job_id": "job_calibration",
-                    "matched": 1 if failure == "matching" else 2,
-                    "unmatched": 0,
+                    "rows": 99 if failure == "calibration_rows" else 100,
                     "request_id": "req_calibration",
                 },
             )
@@ -149,12 +153,14 @@ def test_lifecycle_sequence_and_evidence(failure, optimize, monkeypatch, tmp_pat
         assert ("POST", "/v1/calibrate") not in calls
         assert "test-key" not in output.read_text() and "private" not in output.read_text()
         return
-    if failure in ("listing", "identity", "matching"):
+    if failure in ("listing", "identity", "calibration_rows"):
         with pytest.raises(
             RuntimeError,
-            match={"listing": "not listed as ready", "identity": "identity", "matching": "match both"}[
-                failure
-            ],
+            match={
+                "listing": "not listed as ready",
+                "identity": "identity",
+                "calibration_rows": "submitted number",
+            }[failure],
         ):
             asyncio.run(run())
         assert evidence[-1]["status"] != "passed"
@@ -171,7 +177,7 @@ def test_lifecycle_sequence_and_evidence(failure, optimize, monkeypatch, tmp_pat
         assert [item["status"] for item in result["score_attempts"]] == ["validated", "validated"]
     assert evidence[0]["model_id"] == "scm_new"
     assert evidence[0]["creation_job_id"] == "job_creation"
-    assert calls.count(("POST", "/v1/scores")) == 1
+    assert calls.count(("POST", "/v1/scoring_models")) == 1
     if failure == "creation":
         assert not ids
         assert ("POST", "/v1/calibrate") not in calls

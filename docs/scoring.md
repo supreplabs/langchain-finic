@@ -4,7 +4,7 @@ description: Use Finic custom scoring models with LangChain and manage their lif
 
 # Custom scores and model lifecycle
 
-`FinicClient` supports all six documented Finic REST operations. `Score` remains
+`FinicClient` supports the current Finic scoring-model and decision REST operations. `Score` remains
 an ordered question for the decision API; custom model scoring uses
 `ScoringRequest` and `ScoringResponse`.
 
@@ -29,6 +29,41 @@ validation against the stored schema remains Finic's responsibility.
 
 ## Creating, discovering, and calibrating
 
+Use the current scoring-model endpoints for new applications:
+
+```python
+from langchain_finic import (
+    AddQuestionsRequest,
+    CreateScoringModelRequest,
+    FinicClient,
+    UpdateScoringModelRequest,
+)
+
+with FinicClient() as client:
+    created = client.create_scoring_model(
+        CreateScoringModelRequest(
+            name="Payment fraud",
+            criteria="Card payments. Bad means a confirmed fraud chargeback.",
+        )
+    )  # Criteria-only creation returns immediately without a job ID.
+    model = client.get_scoring_model(created.model_id)
+    client.add_questions(created.model_id, AddQuestionsRequest(questions=["Is this a new device?"]))
+    client.update_scoring_model(created.model_id, UpdateScoringModelRequest(archived=True))
+```
+
+`list_scoring_models()` returns the current `scoring_models` response. `get_scoring_model()`
+returns question IDs, sources and weights. `add_questions()` and `remove_question()`
+manage user questions; a question currently used by a calibrated score must be removed
+through a calibration request's `remove_questions`. `update_scoring_model()` renames,
+changes criteria, and archives or unarchives a model. `delete_scoring_model()` is
+permanent and deletes its records. Archive first when the goal is to disable scoring
+reversibly.
+
+Model creation from labeled records returns a job ID; poll it with `get_job_status()`
+or `wait_for_job()`. Creation from criteria alone returns a model ID immediately.
+Calibration takes at least 100 labeled records, with at least 20 records in each
+outcome class, and can add or remove questions in the same request.
+
 - `create_score(CreateScoreRequest(data=examples, description=...))` starts model
   creation and returns model, job, and request IDs immediately. Supply at least
   100 labeled examples, with at least 20 of each outcome. Labels are booleans,
@@ -37,9 +72,12 @@ validation against the stored schema remains Finic's responsibility.
   the client never silently truncates your data.
 - `list_scores()` returns the newest 500 models and their status/count metadata.
   Finic does not document pagination for this endpoint.
-- `calibrate(CalibrationRequest(model_id=..., data=outcomes))` starts a calibration
-  job. Outcomes contain a previously submitted `score_id` and `is_bad`; a row's
-  optional `model_id` must match. Repeated outcomes replace existing labels.
+- `calibrate(CalibrationRequest(model_id=..., data=examples))` starts a calibration
+  job with labeled records. The earlier `examples` request field is accepted as an
+  alias for `data`. Earlier package versions accepted per-score outcome rows keyed
+  by `score_id`; the current Finic endpoint instead requires full labeled records
+  and the same 100-row / 20-per-outcome minimum as model creation. Keep the source
+  records used for scoring if you plan to calibrate; score IDs alone are not enough.
 - `get_job_status(job_id)` returns `complete`, an optional typed `error`, and a
   derived `succeeded` property. **Complete does not imply success.**
 
@@ -82,9 +120,11 @@ starts and HTTP phase timeouts, not a hard wall-clock limit for a slow response.
 Both helpers use one attempt per poll and surface transient HTTP errors to the
 caller. Waiting never restarts creation or calibration.
 
-Finic documents no model deletion endpoint. Creation and calibration change
-server-side state. Keep job/model IDs in your application, and enable those
-operations only where your application intends to perform them.
+The legacy `create_score()` and `list_scores()` methods remain available for existing
+applications. New code should use `create_scoring_model()` and
+`list_scoring_models()` for the current `/v1/scoring_models` routes. Creation,
+calibration, model updates, question changes, and deletion affect server-side state;
+only expose the corresponding tools when the application authorizes those operations.
 
 See the [Finic API reference](https://docs.finic.ai/reference) for provider limits
 and [API types](api.md) for method signatures.
@@ -138,10 +178,11 @@ def lifecycle_tools(client: FinicClient):
     return read_tools, creation_tool
 ```
 
-The defaults are `finic_list_scores` and `finic_get_job_status`. Select
-`create_score` or `calibrate` explicitly when your application authorizes those
-writes. All tools have Pydantic argument schemas and native async implementations.
-Creation/calibration return job handles immediately. `FinicError` propagates with
+The defaults are `finic_list_scoring_models` and `finic_get_job_status`. Add
+`create_scoring_model`, `calibrate`, `update_scoring_model`, `add_questions`, or
+`remove_question` only when your application authorizes those writes. The permanent
+`delete_scoring_model` tool is never included by default. All tools have Pydantic
+argument schemas and native async implementations. `FinicError` propagates with
 its structured metadata; an application can decide how to handle it. Job-status
 tool results include the provider's failure details, so apply your application's
 usual trace-access controls.

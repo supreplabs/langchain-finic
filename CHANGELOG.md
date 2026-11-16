@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.1.0b3
+
+- Cover the current Grayson ask, scoring-model lifecycle, and calibration API with typed sync/async methods.
+- Add explicitly selected LangChain tools for scoring-model operations, keeping permanent deletion opt-in.
+- Align score/calibration request models, response contracts, examples, and compatibility monitoring with current Finic docs.
+- Calibration now sends full labeled records and requires at least 100 rows, including 20 from each outcome; earlier score-ID-only outcome submissions must be migrated to retain and submit source records.
+
 ## 0.1.0b2
 
 - Refresh locked runtime, development, and test dependencies.

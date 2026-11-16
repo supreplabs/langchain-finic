@@ -1,72 +1,72 @@
 {
-  "reviewed_on": "2026-11-11",
-  "reference": "https://docs.finic.ai/reference.md",
   "operations": {
     "DELETE /v1/scoring_models/{model_id}": {
-      "status": "missing",
-      "note": "Model deletion is not exposed; design explicit authorization for this operation.",
+      "digest": "dd6065352bfa52157fcc190a0c82569031cecf31a5079b7746936667a67a0c11",
       "link": "/reference/delete-scoring-model",
-      "digest": "dd6065352bfa52157fcc190a0c82569031cecf31a5079b7746936667a67a0c11"
+      "note": "Permanent deletion has a typed sync/async method and is excluded from toolkit defaults.",
+      "status": "supported"
     },
     "DELETE /v1/scoring_models/{model_id}/questions/{question_id}": {
-      "status": "missing",
-      "note": "Removing scoring-model questions is not exposed.",
+      "digest": "af2500f28bb6b4e243e6ced23c6479d7fe445face914d666a158de129b812395",
       "link": "/reference/remove-question",
-      "digest": "af2500f28bb6b4e243e6ced23c6479d7fe445face914d666a158de129b812395"
+      "note": "Question removal has typed sync/async methods and is not replayed automatically.",
+      "status": "supported"
     },
     "GET /v1/jobs/{job_id}": {
-      "status": "supported",
-      "note": "Job status is exposed with sync and async clients.",
+      "digest": "6a7040fc7e91eab3fa993e556124a2d5bfb744d516e54052f2e02e639fce80b2",
       "link": "/reference/get-job-status",
-      "digest": "6a7040fc7e91eab3fa993e556124a2d5bfb744d516e54052f2e02e639fce80b2"
+      "note": "Job status is exposed with sync and async clients and tested response identity.",
+      "status": "supported"
     },
     "GET /v1/scoring_models": {
-      "status": "missing",
-      "note": "The package currently lists models using the earlier /v1/scores route.",
+      "digest": "32fa6df206e678fd9ebe34befae8796ffe1528cc2ef5705a60e44ddfce958003",
       "link": "/reference/list-scoring-models",
-      "digest": "32fa6df206e678fd9ebe34befae8796ffe1528cc2ef5705a60e44ddfce958003"
+      "note": "Current model listing and response shape have typed sync/async client methods.",
+      "status": "supported"
     },
     "GET /v1/scoring_models/{model_id}": {
-      "status": "missing",
-      "note": "Model detail retrieval is not exposed.",
+      "digest": "d19387bae6d2af749491e47a8c4e6b1390f4598a333ea39ba5d8460504af8c79",
       "link": "/reference/get-scoring-model",
-      "digest": "d19387bae6d2af749491e47a8c4e6b1390f4598a333ea39ba5d8460504af8c79"
+      "note": "Current model details and question weights have typed sync/async methods with identity checks.",
+      "status": "supported"
     },
     "PATCH /v1/scoring_models/{model_id}": {
-      "status": "missing",
-      "note": "Model metadata updates and archiving are not exposed.",
+      "digest": "4bea215e850c0c9487295a0b03ef6e3bd41398b2acab8e6426e21a219ab2ca20",
       "link": "/reference/update-scoring-model",
-      "digest": "4bea215e850c0c9487295a0b03ef6e3bd41398b2acab8e6426e21a219ab2ca20"
+      "note": "Rename, criteria, archive, and unarchive operations have typed sync/async methods.",
+      "status": "supported"
     },
     "POST /v1/ask": {
-      "status": "partial",
-      "note": "The package calls the earlier /v1/decide alias; assess direct /v1/ask and its current typed contract.",
+      "digest": "60afff87bc5cac75ec9b8d1ce18b56803a76f75fb9efbebe40516eb76fb90a74",
       "link": "/reference/ask",
-      "digest": "60afff87bc5cac75ec9b8d1ce18b56803a76f75fb9efbebe40516eb76fb90a74"
+      "note": "The classifier calls the current endpoint; decide remains a compatibility alias.",
+      "status": "supported"
     },
     "POST /v1/calibrate": {
-      "status": "partial",
-      "note": "Calibration exists; review the current labeled-record and question-update contract.",
+      "digest": "99b2a39137864e7b282b8e93521a29414959a65ebce9a98705abbe74872d9b09",
       "link": "/reference/calibrate",
-      "digest": "99b2a39137864e7b282b8e93521a29414959a65ebce9a98705abbe74872d9b09"
+      "note": "Labeled data, row limits, add/remove question controls, and asynchronous responses are typed.",
+      "status": "supported"
     },
     "POST /v1/score": {
-      "status": "partial",
-      "note": "Scoring exists; review current fields and multipart support against the provider contract.",
+      "digest": "c36f0ea966e3af42de54e56dfc078fbe3969f5d7889d194754d75d89217c3d6d",
       "link": "/reference/score",
-      "digest": "c36f0ea966e3af42de54e56dfc078fbe3969f5d7889d194754d75d89217c3d6d"
+      "note": "Record scoring supports schema flags and optional question-level probabilities and weights.",
+      "status": "supported"
     },
     "POST /v1/scoring_models": {
-      "status": "missing",
-      "note": "The package currently creates models using the earlier /v1/scores route.",
+      "digest": "612d31fee7c160454a9f53a55fdc8fe68bf6d0a6d6c842c678942dcd8ce01145",
       "link": "/reference/create-scoring-model",
-      "digest": "612d31fee7c160454a9f53a55fdc8fe68bf6d0a6d6c842c678942dcd8ce01145"
+      "note": "Typed model creation supports immediate criteria-only and asynchronous labeled-data modes.",
+      "status": "supported"
     },
     "POST /v1/scoring_models/{model_id}/questions": {
-      "status": "missing",
-      "note": "Adding scoring-model questions is not exposed.",
+      "digest": "004357b9ca240c379018490ce94cda52fd61db187cf02b05a82d0980ae347058",
       "link": "/reference/add-questions",
-      "digest": "004357b9ca240c379018490ce94cda52fd61db187cf02b05a82d0980ae347058"
+      "note": "Question creation is typed and validates count and text limits; response includes usage status.",
+      "status": "supported"
     }
-  }
+  },
+  "reference": "https://docs.finic.ai/reference.md",
+  "reviewed_on": "2026-11-16"
 }

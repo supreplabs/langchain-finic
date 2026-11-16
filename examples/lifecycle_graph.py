@@ -16,7 +16,7 @@ from langgraph.graph import END, START, StateGraph
 
 from langchain_finic import (
     CalibrationRequest,
-    CreateScoreRequest,
+    CreateScoringModelRequest,
     FinicClient,
     FinicScorer,
 )
@@ -38,7 +38,9 @@ class LifecycleState(TypedDict, total=False):
 
 def build_graph(client: FinicClient, checkpointer):
     async def create(state: LifecycleState):
-        result = await client.acreate_score(CreateScoreRequest(data=state["examples"]))
+        result = await client.acreate_scoring_model(
+            CreateScoringModelRequest(name="Lifecycle example", data=state["examples"])
+        )
         return {
             "model_id": result.model_id,
             "creation_job_id": result.job_id,
@@ -58,7 +60,7 @@ def build_graph(client: FinicClient, checkpointer):
         result = await client.acalibrate(
             CalibrationRequest(
                 model_id=state["model_id"],
-                data=[{"score_id": state["scoring_result"]["score_id"], "is_bad": state["is_bad"]}],
+                data=state["examples"],
             )
         )
         return {"calibration_job_id": result.job_id, "calibration_request_id": result.request_id}

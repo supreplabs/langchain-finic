@@ -55,8 +55,8 @@ def operation(name):
             "/v1/scores",
         ),
         "calibrate": (
-            CalibrationRequest(model_id="scm_test", data=[{"score_id": "record", "is_bad": False}]),
-            {"job_id": "job_test", "matched": 1, "unmatched": 0, "request_id": "req_test"},
+            CalibrationRequest(model_id="scm_test", data=examples()),
+            {"job_id": "job_test", "rows": 100, "request_id": "req_test"},
             "POST",
             "/v1/calibrate",
         ),
@@ -233,8 +233,8 @@ def test_training_rejects_bad_examples(data):
     [
         [],
         [{"score_id": "s", "is_bad": "maybe"}],
-        [{"score_id": "s", "is_bad": True, "model_id": "other"}],
-        [{"score_id": "s" * 201, "is_bad": 0}],
+        [{"amount": 1, "is_bad": True, "model_id": "other"}] * 100,
+        [{"score_id": "s" * 201, "is_bad": 0}] * 100,
     ],
 )
 def test_invalid_outcomes(data):
@@ -243,7 +243,8 @@ def test_invalid_outcomes(data):
 
 
 def test_csv_outcomes():
-    assert CalibrationRequest(model_id="m", data="score_id,is_bad\ns,0\n").data.endswith("s,0\n")
+    csv = "amount,is_bad\n" + "".join(f"{i},{i % 2}\n" for i in range(100))
+    assert CalibrationRequest(model_id="m", data=csv).data.endswith("99,1\n")
 
 
 @pytest.mark.parametrize("asynchronous", [False, True])

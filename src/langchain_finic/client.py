@@ -16,14 +16,21 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError, f
 from langchain_finic._config import env_option
 from langchain_finic.models import DecisionRequest, DecisionResponse
 from langchain_finic.scoring_models import (
+    AddQuestionsRequest,
     CalibrationRequest,
     CalibrationResponse,
     CreateScoreRequest,
     CreateScoreResponse,
+    CreateScoringModelRequest,
+    CreateScoringModelResponse,
+    DeleteScoringModelResponse,
     JobStatus,
     ListScoresResponse,
+    ListScoringModelsResponse,
+    ScoringModel,
     ScoringRequest,
     ScoringResponse,
+    UpdateScoringModelRequest,
 )
 
 ResponseT = TypeVar("ResponseT", bound=BaseModel)
@@ -308,6 +315,35 @@ class FinicClient:
     async def adecide(self, request: DecisionRequest) -> DecisionResponse:
         return self._parse(await self._asend("POST", "/v1/decide", request=request, retry=True), request)
 
+    def ask(self, request: DecisionRequest) -> DecisionResponse:
+        """Ask the current Grayson API; equivalent to the retained ``decide`` alias."""
+        response = self._send("POST", "/v1/ask", request=request, retry=True)
+        result = self._parse(response, request)
+        request_id = response.headers.get("x-request-id")
+        if (
+            result.request_id is None
+            or result.evaluation_time_ms is None
+            or (request_id is not None and result.request_id != request_id)
+        ):
+            raise FinicError(
+                "Finic ask response does not match the current response contract", request_id=request_id
+            )
+        return result
+
+    async def aask(self, request: DecisionRequest) -> DecisionResponse:
+        response = await self._asend("POST", "/v1/ask", request=request, retry=True)
+        result = self._parse(response, request)
+        request_id = response.headers.get("x-request-id")
+        if (
+            result.request_id is None
+            or result.evaluation_time_ms is None
+            or (request_id is not None and result.request_id != request_id)
+        ):
+            raise FinicError(
+                "Finic ask response does not match the current response contract", request_id=request_id
+            )
+        return result
+
     @staticmethod
     def _scored(response: httpx.Response, request: ScoringRequest) -> ScoringResponse:
         result = FinicClient._result(response, ScoringResponse)
@@ -325,6 +361,106 @@ class FinicClient:
 
     async def ascore(self, request: ScoringRequest) -> ScoringResponse:
         return self._scored(await self._asend("POST", "/v1/score", request=request), request)
+
+    @staticmethod
+    def _model_path(model_id: str) -> str:
+        if not isinstance(model_id, str) or not model_id.strip():
+            raise ValueError("model_id must be nonblank text")
+        return "/v1/scoring_models/" + quote(model_id, safe="")
+
+    @staticmethod
+    def _model_result(response: httpx.Response, model_id: str) -> ScoringModel:
+        model = FinicClient._result(response, ScoringModel)
+        if model.model_id != model_id:
+            raise FinicError(
+                "Finic scoring model response identity mismatch",
+                request_id=response.headers.get("x-request-id"),
+            )
+        return model
+
+    def create_scoring_model(self, request: CreateScoringModelRequest) -> CreateScoringModelResponse:
+        """Create a scoring model from labeled data or criteria; accepted jobs are not polled."""
+        result = self._result(
+            self._send("POST", "/v1/scoring_models", request=request), CreateScoringModelResponse
+        )
+        self._validate_creation_mode(request, result)
+        return result
+
+    async def acreate_scoring_model(self, request: CreateScoringModelRequest) -> CreateScoringModelResponse:
+        result = self._result(
+            await self._asend("POST", "/v1/scoring_models", request=request), CreateScoringModelResponse
+        )
+        self._validate_creation_mode(request, result)
+        return result
+
+    @staticmethod
+    def _validate_creation_mode(
+        request: CreateScoringModelRequest, result: CreateScoringModelResponse
+    ) -> None:
+        if (request.data is None) == (result.job_id is not None):
+            raise FinicError("Finic creation response does not match the requested creation mode")
+
+    def list_scoring_models(self) -> ListScoringModelsResponse:
+        """List up to 500 current scoring models, newest first."""
+        return self._result(self._send("GET", "/v1/scoring_models", retry=True), ListScoringModelsResponse)
+
+    async def alist_scoring_models(self) -> ListScoringModelsResponse:
+        return self._result(
+            await self._asend("GET", "/v1/scoring_models", retry=True), ListScoringModelsResponse
+        )
+
+    def get_scoring_model(self, model_id: str) -> ScoringModel:
+        return self._model_result(self._send("GET", self._model_path(model_id), retry=True), model_id)
+
+    async def aget_scoring_model(self, model_id: str) -> ScoringModel:
+        return self._model_result(await self._asend("GET", self._model_path(model_id), retry=True), model_id)
+
+    def update_scoring_model(self, model_id: str, request: UpdateScoringModelRequest) -> ScoringModel:
+        return self._model_result(
+            self._send("PATCH", self._model_path(model_id), request=request, retry=True), model_id
+        )
+
+    async def aupdate_scoring_model(self, model_id: str, request: UpdateScoringModelRequest) -> ScoringModel:
+        return self._model_result(
+            await self._asend("PATCH", self._model_path(model_id), request=request, retry=True), model_id
+        )
+
+    def add_questions(self, model_id: str, request: AddQuestionsRequest) -> ScoringModel:
+        return self._model_result(
+            self._send("POST", self._model_path(model_id) + "/questions", request=request), model_id
+        )
+
+    async def aadd_questions(self, model_id: str, request: AddQuestionsRequest) -> ScoringModel:
+        return self._model_result(
+            await self._asend("POST", self._model_path(model_id) + "/questions", request=request), model_id
+        )
+
+    def remove_question(self, model_id: str, question_id: str) -> ScoringModel:
+        if not isinstance(question_id, str) or not question_id.strip():
+            raise ValueError("question_id must be nonblank text")
+        path = self._model_path(model_id) + "/questions/" + quote(question_id, safe="")
+        return self._model_result(self._send("DELETE", path), model_id)
+
+    async def aremove_question(self, model_id: str, question_id: str) -> ScoringModel:
+        if not isinstance(question_id, str) or not question_id.strip():
+            raise ValueError("question_id must be nonblank text")
+        path = self._model_path(model_id) + "/questions/" + quote(question_id, safe="")
+        return self._model_result(await self._asend("DELETE", path), model_id)
+
+    def delete_scoring_model(self, model_id: str) -> DeleteScoringModelResponse:
+        """Permanently delete a model and its records; archive it to disable reversibly."""
+        result = self._result(self._send("DELETE", self._model_path(model_id)), DeleteScoringModelResponse)
+        if result.model_id != model_id:
+            raise FinicError("Finic deletion response identity mismatch")
+        return result
+
+    async def adelete_scoring_model(self, model_id: str) -> DeleteScoringModelResponse:
+        result = self._result(
+            await self._asend("DELETE", self._model_path(model_id)), DeleteScoringModelResponse
+        )
+        if result.model_id != model_id:
+            raise FinicError("Finic deletion response identity mismatch")
+        return result
 
     def create_score(self, request: CreateScoreRequest) -> CreateScoreResponse:
         """Start creation once; return the model/job IDs without polling."""

@@ -14,7 +14,7 @@
 [Releases](https://github.com/supreplabs/langchain-finic/releases)
 
 `langchain-finic` is an open-source Python integration for the
-[Finic Grayson API](https://docs.finic.ai/reference/decide). It brings typed,
+[Finic Grayson API](https://docs.finic.ai/reference/ask). It brings typed,
 probability-based decisions into LangChain Runnables, LangGraph workflows, and
 agent tools. Use it to add risk assessment, review routing, or decision support
 to an application, and to work with Finic custom scoring models.
@@ -43,7 +43,7 @@ Evaluate decisions on representative data before relying on them.
 Python 3.11 or newer and a Finic API key are required.
 
 ```bash
-pip install langchain-finic==0.1.0b2
+pip install langchain-finic==0.1.0b3
 export FINIC_API_KEY=your_key
 ```
 
@@ -108,13 +108,13 @@ flowchart LR
 For middleware, install the extra and the provider packages for your host chat models:
 
 ```bash
-pip install 'langchain-finic[middleware]==0.1.0b2'
+pip install 'langchain-finic[middleware]==0.1.0b3'
 ```
 
 For Kairos event tracking and action decisions, install the optional extra:
 
 ```bash
-pip install 'langchain-finic[kairos]==0.1.0b2'
+pip install 'langchain-finic[kairos]==0.1.0b3'
 ```
 
 See the [Kairos adapter guide](https://supreplabs.github.io/langchain-finic/kairos/).
