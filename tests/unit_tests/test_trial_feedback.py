@@ -50,3 +50,37 @@ def test_toolkit_score_explicitly_grants_schema_capability(flag, option):
         tool = FinicToolkit(client=client, operations=("score",), **{option: True}).get_tools()[0]
         tool.invoke({"model_id": "model", "score_id": "record", "data": {"amount": 1}, flag: True})
     assert seen[0][flag] is True
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.asyncio
+async def test_toolkit_score_normalizes_langchain_messages(asynchronous):
+    import json
+
+    import httpx
+    from langchain_core.messages import HumanMessage
+
+    from langchain_finic import ScoringRequest
+
+    payload = {
+        "model_id": "model",
+        "score_id": "record",
+        "data": {"messages": [HumanMessage(content="Review this fictional transaction")]},
+    }
+    seen = []
+
+    def handle(request):
+        seen.append(json.loads(request.content))
+        return httpx.Response(
+            200, json={"model_id": "model", "score_id": "record", "score": 500, "request_id": "req"}
+        )
+
+    transport = httpx.MockTransport(handle)
+    async with FinicClient("test", transport=transport, async_transport=transport) as client:
+        tool = FinicToolkit(client=client, operations=("score",)).get_tools()[0]
+        if asynchronous:
+            await tool.ainvoke(payload)
+        else:
+            tool.invoke(payload)
+    assert seen == [ScoringRequest(**payload).model_dump(exclude_none=True)]
+    assert seen[0]["data"] == {"messages": [{"role": "user", "content": "Review this fictional transaction"}]}

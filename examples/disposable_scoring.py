@@ -62,6 +62,17 @@ async def run_trial(
     creation = CreateScoringModelRequest(name=f"Disposable trial {run_id}", criteria=criteria, data=training)
     # Validate calibration before any remote write, using a placeholder model ID.
     calibration_request = CalibrationRequest(model_id="pending", data=calibration)
+    # Validate every holdout record before creating a remote model. Keep normalized
+    # copies so caller mutations during awaits cannot change the evaluated inputs.
+    holdout_data = [
+        ScoringRequest(
+            model_id="pending",
+            score_id=f"{run_id}-initial_trained-{index}",
+            data={key: value for key, value in row.items() if key != "is_bad"},
+            include_questions=True,
+        ).data
+        for index, row in enumerate(holdout)
+    ]
     ledger = {"run_id": run_id, "status": "running", "cleanup": "not_needed", "threshold": threshold}
     ledger_path = Path(ledger_path)
     # Exclusive creation prevents accidental replay using an existing ledger.
@@ -105,18 +116,17 @@ async def run_trial(
                 await wait(accepted.job_id)
             scores = []
             question_counts = []
-            for index, row in enumerate(holdout):
+            for index, data in enumerate(holdout_data):
                 score_id = f"{run_id}-{phase}-{index}"
+                request = ScoringRequest(
+                    model_id=model_id,
+                    score_id=score_id,
+                    data=data,
+                    include_questions=True,
+                )
                 ledger["pending_write"] = {"phase": phase, "score_id": score_id}
                 save()
-                result = await client.ascore(
-                    ScoringRequest(
-                        model_id=model_id,
-                        score_id=score_id,
-                        data={key: value for key, value in row.items() if key != "is_bad"},
-                        include_questions=True,
-                    )
-                )
+                result = await client.ascore(request)
                 scores.append(result.score)
                 question_counts.append(len(result.questions or []))
                 ledger.pop("pending_write")

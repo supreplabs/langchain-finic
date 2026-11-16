@@ -5,6 +5,7 @@ from typing import Annotated, Any, Literal, Self, cast
 from langchain_core.tools import BaseTool, BaseToolkit, StructuredTool
 from pydantic import ConfigDict, Field, StrictBool, create_model, field_validator, model_validator
 
+from langchain_finic._state import normalize_state
 from langchain_finic.client import FinicClient
 from langchain_finic.models import DecisionRequest, Model, Text
 from langchain_finic.scoring_models import (
@@ -170,6 +171,9 @@ class FinicToolkit(BaseToolkit):
             schema = create_model(
                 "FinicToolkitScoringInput",
                 __base__=Model,
+                __validators__={
+                    "normalize_data": field_validator("data", mode="before")(normalize_state),
+                },
                 **fields,
             )
 

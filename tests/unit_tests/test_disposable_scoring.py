@@ -15,10 +15,12 @@ example = runpy.run_path(str(Path(__file__).resolve().parents[2] / "examples/dis
 class Client:
     def __init__(self, failure=None):
         self.failure = failure
+        self.created = 0
         self.deleted = False
         self.scores = []
 
     async def acreate_scoring_model(self, request):
+        self.created += 1
         return SimpleNamespace(model_id="owned", job_id="create-job")
 
     async def await_job(self, job_id, **kwargs):
@@ -93,3 +95,28 @@ async def test_failure_and_cleanup_are_recorded_separately(tmp_path, failure, de
         assert ledger["pending_write"]["score_id"] == client.scores[0]
     if failure == "delete":
         assert ledger["status"] == "passed" and ledger["cleanup_error_type"] == "RuntimeError"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "invalid",
+    [{"is_bad": True}, {"is_bad": False, "amount": float("nan")}, {"is_bad": True, "text": "x" * 60001}],
+)
+async def test_invalid_holdout_fails_before_any_remote_creation(tmp_path, invalid):
+    client = Client()
+    path = tmp_path / "ledger.json"
+    rows = [{"amount": i, "is_bad": i % 2 == 0} for i in range(100)]
+    with pytest.raises(ValueError):
+        await example["run_trial"](
+            client,
+            training=rows,
+            calibration=rows,
+            holdout=[{"amount": 300, "is_bad": True}, invalid],
+            criteria="Fictional trial",
+            threshold=500,
+            ledger_path=path,
+        )
+    assert client.created == 0
+    assert client.scores == []
+    assert not client.deleted
+    assert not path.exists()
