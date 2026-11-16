@@ -1,12 +1,15 @@
 # Changelog
 
-## Unreleased
+## 0.1.0b4
 
-- Add an executable disposable-model evaluation and cleanup example with recovery evidence, baseline metrics, and guidance for HTTP agent idempotency.
-
-- Require explicit schema capability grants for toolkit scoring and hide ungranted flags.
+- Require explicit schema-update and schema-bypass grants for toolkit scoring; preserve LangChain message normalization in sync and async tools.
 - Diagnose legacy score-ID-only calibration payloads and clarify onboarding, score evidence, and lifecycle migration.
-- Add a reusable developer trial kit for recording human or simulated feedback.
+- Report ambiguous deletion outcomes and actionable lifecycle errors, and expose selected destructive toolkit operations for inspection.
+- Add disposable-model evaluation with prevalidated holdouts, recovery ledgers, verified cleanup, baseline metrics, and observed job-wait durations.
+- Add reproducible UCI Bank Marketing and Online Shoppers recipes with pinned archives, offline validation, explicit bounded live execution, and attribution.
+- Expand offline regression coverage for write timeouts, cleanup verification, cancellation, request budgets, dataset splits, and toolkit permissions.
+- Refresh LangChain, langchain-core, LangSmith, LangGraph and Ruff lockfile versions.
+- Document a proposal for provider job-progress metadata. Finic still exposes completion/failure only; percentage and ETA support remain pending.
 
 ## 0.1.0b3
 
