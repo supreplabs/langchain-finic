@@ -115,6 +115,32 @@ Keep durable application records when confirmed delivery matters. Reconcile
 uncertain outcomes using supported service interfaces before retrying writes;
 the adapter does not inspect SDK private queues or replace your error callback.
 
+## Async cancellation and client lifetime
+
+`KairosRunnable.ainvoke` and async toolkit operations run synchronous SDK methods
+in worker threads. Cancelling the awaiting task, including through an application
+timeout, does **not** stop the SDK thread, its in-flight request, or its retries.
+The remote operation may complete after the caller receives `CancelledError`.
+This applies to decisions as well as event and workflow operations. SDK timeouts
+and retry policy remain separate from the caller's async deadline.
+
+Record write intent and retain available event/workflow identifiers before
+starting business actions. Treat cancellation as an unknown remote outcome;
+reconcile against supported service records or an application ledger before
+resubmitting. Do not wrap uncertain writes in automatic retries or interpret
+cancellation as rollback. Flush completion is also not a delivery acknowledgement.
+
+The application owns the SDK client. Stop accepting new work, allow outstanding
+SDK calls to finish, and then call `shutdown()`; the adapter does not close the
+client or stop its worker threads. Avoid a `finally: client.shutdown()` directly
+around a cancellable await while its SDK call may still be running. For graceful
+shutdown, an application supervisor can retain the operation task, await it via
+`asyncio.shield`, and later drain that retained task before closing the client.
+Shielding protects the operation from caller cancellation; it does not cancel
+remote work or turn an uncertain result into an acknowledgement. If the task
+itself was already cancelled, awaiting it again cannot join the SDK worker: use
+application-level tracking of SDK completion and its configured timeouts.
+
 ## Composition
 
 The Runnable can sit inside an LCEL chain or a LangGraph node:
