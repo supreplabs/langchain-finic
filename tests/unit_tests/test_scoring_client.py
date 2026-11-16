@@ -407,3 +407,69 @@ def test_provider_failures(name, code, error_type, asynchronous):
                 getattr(client, name)(argument)
     assert exc.value.status == code and exc.value.error_type == error_type
     assert exc.value.param == "data" and "private" not in str(exc.value)
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize(
+    "operation,args",
+    [
+        ("delete_scoring_model", ("scm_test",)),
+        ("remove_question", ("scm_test", "q_test")),
+    ],
+)
+def test_delete_timeout_reports_unknown_write_outcome(asynchronous, operation, args):
+    calls = []
+
+    def handle(request):
+        calls.append(request)
+        raise httpx.ReadTimeout("private payload", request=request)
+
+    transport = httpx.MockTransport(handle)
+    client = FinicClient("secret", max_attempts=5, transport=transport, async_transport=transport)
+    with pytest.raises(FinicError, match="write outcome may be unknown") as caught:
+        if asynchronous:
+
+            async def run():
+                async with client:
+                    await getattr(client, "a" + operation)(*args)
+
+            asyncio.run(run())
+        else:
+            with client:
+                getattr(client, operation)(*args)
+    assert len(calls) == 1
+    assert "private" not in str(caught.value)
+    assert "secret" not in str(caught.value)
+
+
+@pytest.mark.parametrize(
+    "status, message",
+    [
+        (403, "permission denied"),
+        (404, "resource not found"),
+        (409, "conflicts"),
+    ],
+)
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_lifecycle_errors_have_safe_diagnostics(status, message, asynchronous):
+    transport = httpx.MockTransport(
+        lambda _: httpx.Response(
+            status,
+            headers={"x-request-id": "req_test"},
+            json={"error": {"type": "provider_error", "message": "private payload"}},
+        )
+    )
+    client = FinicClient("secret", transport=transport, async_transport=transport)
+    with pytest.raises(FinicError, match=message) as caught:
+        if asynchronous:
+
+            async def run():
+                async with client:
+                    await client.aget_scoring_model("scm_test")
+
+            asyncio.run(run())
+        else:
+            with client:
+                client.get_scoring_model("scm_test")
+    assert caught.value.request_id == "req_test"
+    assert "private" not in str(caught.value)

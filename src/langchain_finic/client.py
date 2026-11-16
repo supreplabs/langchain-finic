@@ -219,6 +219,9 @@ class FinicClient:
             400: "Invalid Finic request",
             401: "Check FINIC_API_KEY; authentication failed",
             402: "Finic credits exhausted; check billing in the portal",
+            403: "Finic permission denied; check the API key permissions",
+            404: "Finic resource not found",
+            409: "Finic resource conflicts with the requested operation",
             413: "Case exceeds Finic's token or body size limit",
             429: "Finic rate limit reached",
         }
@@ -254,7 +257,7 @@ class FinicClient:
                 if last:
                     raise FinicError(
                         "Finic transport failed; write outcome may be unknown"
-                        if method == "POST" and not retry
+                        if method != "GET" and not retry
                         else "Finic unreachable after bounded retries"
                     ) from None
             else:
@@ -288,7 +291,7 @@ class FinicClient:
                 if last:
                     raise FinicError(
                         "Finic transport failed; write outcome may be unknown"
-                        if method == "POST" and not retry
+                        if method != "GET" and not retry
                         else "Finic unreachable after bounded retries"
                     ) from None
             else:

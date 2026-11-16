@@ -375,3 +375,16 @@ def test_scoring_cli_example(monkeypatch, capsys):
     monkeypatch.setattr("sys.argv", ["scoring.py", "--model-id", "scm_test", "--score-id", "unique"])
     runpy.run_path(str(Path(__file__).resolve().parents[2] / "examples/scoring.py"), run_name="__main__")
     assert "unique" in capsys.readouterr().out
+
+
+def test_toolkit_destructive_selection_is_metadata():
+    with FinicClient("test") as client:
+        assert FinicToolkit(client=client).destructive == ()
+        toolkit = FinicToolkit(client=client, operations=("get_scoring_model", "delete_scoring_model"))
+        assert toolkit.destructive == ("delete_scoring_model",)
+        assert [tool.name for tool in toolkit.get_tools()] == [
+            "finic_get_scoring_model",
+            "finic_delete_scoring_model",
+        ]
+        toolkit.operations = ("get_scoring_model",)
+        assert toolkit.destructive == ()

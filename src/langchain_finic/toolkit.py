@@ -81,6 +81,15 @@ class FinicToolkit(BaseToolkit):
             raise ValueError("Select each operation at most once")
         return self
 
+    @property
+    def destructive(self) -> tuple[Operation, ...]:
+        """Selected operations that permanently delete a model and its records.
+
+        Applications can inspect this before exposing tools. This is metadata,
+        not an authorization check; other selected operations can also mutate state.
+        """
+        return tuple(name for name in self.operations if name == "delete_scoring_model")
+
     def _tool(self, operation: Operation) -> BaseTool:
         schemas: dict[str, type[Model]] = {
             "ask": DecisionRequest,
