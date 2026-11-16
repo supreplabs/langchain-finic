@@ -37,7 +37,7 @@ def test_api_key_environment(monkeypatch, key):
 
 def test_sync_contract_and_credentials(request_body, response_body):
     def handle(request):
-        assert str(request.url) == "https://api.finic.ai/v1/decide"
+        assert str(request.url) == "https://api.finic.ai/v1/ask"
         assert request.headers["authorization"] == "Bearer fake-key"
         assert "base_rate" not in json.loads(request.content)["questions"]["fits_profile"]
         return httpx.Response(200, json=response_body)

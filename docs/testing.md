@@ -21,7 +21,7 @@ fixture_calls = []
 def fixture_response(request: httpx.Request) -> httpx.Response:
     payload = json.loads(request.content)
     fixture_calls.append(payload)
-    assert request.url.path == "/v1/decide"
+    assert request.url.path == "/v1/ask"
     return httpx.Response(
         200,
         json={

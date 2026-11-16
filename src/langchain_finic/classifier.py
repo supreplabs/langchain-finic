@@ -164,22 +164,22 @@ class FinicClassifier(_DecisionToolConversion, FinicRunnable[DecisionRequest, De
     def _invoke(self, value: DecisionRequest | dict, *, model: str | None = None) -> DecisionResponse:
         request = self._request(value, model)
         if self.client is not None or self._pool_connections:
-            result = self._client.decide(request)
+            result = self._client.ask(request)
         else:
             # LangChain reconstructs configurable models without entering/exiting
             # their context. Never leave an unowned pool on those temporary models.
             with self._new_client() as client:
-                result = client.decide(request)
+                result = client.ask(request)
         self._record_usage(result)
         return result
 
     async def _ainvoke(self, value: DecisionRequest | dict, *, model: str | None = None) -> DecisionResponse:
         request = self._request(value, model)
         if self.client is not None or self._pool_connections:
-            result = await self._client.adecide(request)
+            result = await self._client.aask(request)
         else:
             async with self._new_client() as client:
-                result = await client.adecide(request)
+                result = await client.aask(request)
         self._record_usage(result)
         return result
 

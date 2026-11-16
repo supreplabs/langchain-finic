@@ -7,7 +7,7 @@ description: Finic API compatibility rubric and automated upstream change monito
 This matrix reviews the Finic API reference against the package, independently
 of LangChain and Python version compatibility. It is a point-in-time assessment,
 not a promise that a provider operation is available to every account or that its
-predictions meet a customer's requirements. Reviewed on 11 November 2026 against
+predictions meet a customer's requirements. Reviewed on 16 November 2026 against
 [Finic's API reference](https://docs.finic.ai/reference).
 
 | Status | Rubric |
@@ -19,21 +19,23 @@ predictions meet a customer's requirements. Reviewed on 11 November 2026 against
 
 | Finic operation | Status | Package coverage and gap |
 | --- | --- | --- |
-| `POST /v1/ask` | Partial | `FinicClassifier` and `FinicClient.decide` call the documented earlier `/v1/decide` alias. Review direct `/v1/ask` support and its current contract. |
-| `POST /v1/score` | Partial | `FinicScorer` and `FinicClient.score` provide JSON scoring. Review current fields and multipart support. |
-| `POST /v1/scoring_models` | Missing | Creation uses the older `/v1/scores` path; the current endpoint and criteria-only creation need review. |
-| `GET /v1/scoring_models` | Missing | Listing uses the older `/v1/scores` path. |
-| `GET /v1/scoring_models/{model_id}` | Missing | Model details and questions have no client method. |
-| `PATCH /v1/scoring_models/{model_id}` | Missing | Updating or archiving a model has no client method. |
-| `DELETE /v1/scoring_models/{model_id}` | Missing | Deletion has no client method; any implementation needs an explicit destructive-operation policy. |
-| `POST /v1/scoring_models/{model_id}/questions` | Missing | Adding questions has no client method. |
-| `DELETE /v1/scoring_models/{model_id}/questions/{question_id}` | Missing | Removing questions has no client method. |
-| `POST /v1/calibrate` | Partial | A client method exists; review the current labeled-record and question-update contract. |
+| `POST /v1/ask` | Supported | `FinicClassifier` uses this endpoint; `/v1/decide` remains available as a client compatibility alias. |
+| `POST /v1/score` | Supported | `FinicScorer` and `FinicClient.score` validate current score IDs, schema flags, optional question evidence, and response identity. |
+| `POST /v1/scoring_models` | Supported | Typed creation supports criteria-only immediate creation and labeled-data asynchronous jobs. |
+| `GET /v1/scoring_models` | Supported | `list_scoring_models` returns typed current model summaries. |
+| `GET /v1/scoring_models/{model_id}` | Supported | `get_scoring_model` returns model metadata and question weights, checking response identity. |
+| `PATCH /v1/scoring_models/{model_id}` | Supported | `update_scoring_model` supports renaming, criteria changes, and reversible archive/unarchive. |
+| `DELETE /v1/scoring_models/{model_id}` | Supported | Explicit client method; permanent deletion is not exposed by default in the LangChain toolkit. |
+| `POST /v1/scoring_models/{model_id}/questions` | Supported | `add_questions` validates question limits and returns added-question use status. |
+| `DELETE /v1/scoring_models/{model_id}/questions/{question_id}` | Supported | `remove_question` returns the updated model and is not automatically replayed. |
+| `POST /v1/calibrate` | Supported | Calibration validates labeled-record requirements and supports adding/removing questions. |
 | `GET /v1/jobs/{job_id}` | Supported | Sync and async job status methods are covered by unit tests. |
 
 Finic documents `/v1/decide` as an earlier name of `/v1/ask` that still works.
-The legacy paths used by the package require separate verification; their absence
-from the current endpoint table does not establish that they have stopped working.
+The legacy `/v1/scores` methods remain available for package compatibility but are
+not counted as current API coverage; new code should use the `/v1/scoring_models`
+methods. Requests use the documented JSON bodies. Finic also accepts multipart
+requests for selected endpoints; multipart encoding is not currently exposed.
 Kairos is a separate API and is outside this matrix.
 
 ## Weekly check

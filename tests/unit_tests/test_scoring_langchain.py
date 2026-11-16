@@ -75,7 +75,7 @@ class ToolkitContract:
             "list_scores": {"scores": []},
             "get_job_status": {"job_id": "job_test", "complete": True},
             "create_score": {"model_id": "scm_test", "job_id": "job_test", "request_id": "req_test"},
-            "calibrate": {"job_id": "job_test", "matched": 1, "unmatched": 0, "request_id": "req_test"},
+            "calibrate": {"job_id": "job_test", "rows": 100, "request_id": "req_test"},
         }
         transport = httpx.MockTransport(lambda _: httpx.Response(200, json=responses[self.operation]))
         client = FinicClient("test", transport=transport, async_transport=transport)
@@ -88,7 +88,10 @@ class ToolkitContract:
             "list_scores": {},
             "get_job_status": {"job_id": "job_test"},
             "create_score": {"data": [{"amount": i, "is_bad": i % 2} for i in range(100)]},
-            "calibrate": {"model_id": "scm_test", "data": [{"score_id": "s", "is_bad": False}]},
+            "calibrate": {
+                "model_id": "scm_test",
+                "data": [{"amount": i, "is_bad": i % 2} for i in range(100)],
+            },
         }[self.operation]
 
 
@@ -211,7 +214,10 @@ def test_borrowed_client_tool_selection_and_validation():
         model.close()
         assert not client._closed
         toolkit = FinicToolkit(client=client)
-        assert [tool.name for tool in toolkit.get_tools()] == ["finic_list_scores", "finic_get_job_status"]
+        assert [tool.name for tool in toolkit.get_tools()] == [
+            "finic_list_scoring_models",
+            "finic_get_job_status",
+        ]
         assert FinicToolkit(client=client, operations=()).get_tools() == []
         with pytest.raises(ValidationError):
             FinicToolkit(client=client, operations=("calibrate", "calibrate"))
@@ -267,7 +273,7 @@ def test_checkpointed_graph_resumes_wait_without_repeating_creation():
         def handle(request):
             nonlocal failed_once
             calls.append((request.method, request.url.path))
-            if request.url.path == "/v1/scores":
+            if request.url.path == "/v1/scoring_models":
                 return httpx.Response(
                     202, json={"model_id": "scm_graph", "job_id": "job_create", "request_id": "req_create"}
                 )
@@ -285,8 +291,7 @@ def test_checkpointed_graph_resumes_wait_without_repeating_creation():
                     202,
                     json={
                         "job_id": "job_calibrate",
-                        "matched": 1,
-                        "unmatched": 0,
+                        "rows": 100,
                         "request_id": "req_calibrate",
                     },
                 )
@@ -311,7 +316,7 @@ def test_checkpointed_graph_resumes_wait_without_repeating_creation():
             result = await graph.ainvoke(None, config)
         assert result["calibration_ready"] and result["creation_ready"]
         assert result["scoring_result"]["score_id"] == "record_0"
-        assert calls.count(("POST", "/v1/scores")) == 1
+        assert calls.count(("POST", "/v1/scoring_models")) == 1
         assert calls.count(("POST", "/v1/calibrate")) == 1
 
     asyncio.run(run())
@@ -326,7 +331,7 @@ def test_agent_example_tool_call(asynchronous):
         def bind_tools(self, tools, **kwargs):
             assert {tool.name for tool in tools} == {
                 "finic_score",
-                "finic_list_scores",
+                "finic_list_scoring_models",
                 "finic_get_job_status",
             }
             return self

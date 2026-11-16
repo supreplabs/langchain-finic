@@ -14,7 +14,7 @@ from uuid import uuid4
 
 import httpx
 
-from langchain_finic import CalibrationRequest, CreateScoreRequest, FinicClient, ScoringRequest
+from langchain_finic import CalibrationRequest, CreateScoringModelRequest, FinicClient, ScoringRequest
 
 
 def synthetic_examples() -> list[dict]:
@@ -32,13 +32,10 @@ def synthetic_examples() -> list[dict]:
 async def exercise_lifecycle(client: FinicClient, record: Callable[[dict], None]) -> dict:
     """Exercise only the model created here; persist job and score identities before waits and writes."""
     evidence: dict = {"started_at": datetime.now(UTC).isoformat(), "status": "running"}
-    created = await client.acreate_score(
-        CreateScoreRequest(
+    created = await client.acreate_scoring_model(
+        CreateScoringModelRequest(
+            name="langchain-finic synthetic integration check",
             data=synthetic_examples(),
-            description=(
-                "langchain-finic synthetic integration check. "
-                "is_bad is an artificial test label; not a production model."
-            ),
         )
     )
     evidence.update(
@@ -50,11 +47,12 @@ async def exercise_lifecycle(client: FinicClient, record: Callable[[dict], None]
         raise RuntimeError("Creation job did not succeed")
     evidence["creation_complete"] = True
     record(evidence)
-    listing = await client.alist_scores()
-    if not any(item.model_id == created.model_id and item.status == "ready" for item in listing.scores):
+    listing = await client.alist_scoring_models()
+    if not any(
+        item.model_id == created.model_id and item.status == "ready" for item in listing.scoring_models
+    ):
         raise RuntimeError("Created model is not listed as ready")
     scores = []
-    outcomes = []
     evidence["score_attempts"] = []
     for label in (False, True):
         score_id = "integration_" + uuid4().hex
@@ -81,20 +79,21 @@ async def exercise_lifecycle(client: FinicClient, record: Callable[[dict], None]
             raise RuntimeError("Score response is missing a valid score or request ID")
         attempt["status"] = "validated"
         scores.append(result.model_dump())
-        outcomes.append({"score_id": score_id, "is_bad": label})
         evidence["scores"] = scores
         record(evidence)
         await asyncio.sleep(0.3)  # Remain below the documented organization rate.
-    calibration = await client.acalibrate(CalibrationRequest(model_id=created.model_id, data=outcomes))
+    calibration_rows = synthetic_examples()
+    calibration = await client.acalibrate(
+        CalibrationRequest(model_id=created.model_id, data=calibration_rows)
+    )
     evidence.update(
         calibration_job_id=calibration.job_id,
         calibration_request_id=calibration.request_id,
-        matched=calibration.matched,
-        unmatched=calibration.unmatched,
+        calibration_rows=calibration.rows,
     )
     record(evidence)
-    if calibration.matched != 2 or calibration.unmatched != 0:
-        raise RuntimeError("Calibration did not match both score outcomes")
+    if calibration.rows != len(calibration_rows):
+        raise RuntimeError("Calibration did not report the submitted number of labeled rows")
     calibration_job = await client.await_job(calibration.job_id, timeout=900)
     if not calibration_job.succeeded:
         raise RuntimeError("Calibration job did not succeed")
