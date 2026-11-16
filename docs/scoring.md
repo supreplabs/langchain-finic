@@ -74,7 +74,10 @@ outcome class, and can add or remove questions in the same request.
   Finic does not document pagination for this endpoint.
 - `calibrate(CalibrationRequest(model_id=..., data=examples))` starts a calibration
   job with labeled records. The earlier `examples` request field is accepted as an
-  alias for `data`.
+  alias for `data`. Earlier package versions accepted per-score outcome rows keyed
+  by `score_id`; the current Finic endpoint instead requires full labeled records
+  and the same 100-row / 20-per-outcome minimum as model creation. Keep the source
+  records used for scoring if you plan to calibrate; score IDs alone are not enough.
 - `get_job_status(job_id)` returns `complete`, an optional typed `error`, and a
   derived `succeeded` property. **Complete does not imply success.**
 
