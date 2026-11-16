@@ -63,3 +63,6 @@ For the full remote workflow and cleanup procedure, use the
 and recalibrated results, chosen threshold, baseline, evidence changes, and cleanup
 status. For HTTP agents, record actual queue actions plus duplicate, conflicting-ID
 and invalid-input behavior; specify persistence and worker limitations.
+
+For pinned UCI sources, deterministic splits and bounded execution, follow the
+[public dataset scoring recipes](tutorials/public-dataset-scoring.md).
