@@ -60,9 +60,14 @@ permanent and deletes its records. Archive first when the goal is to disable sco
 reversibly.
 
 Model creation from labeled records returns a job ID; poll it with `get_job_status()`
-or `wait_for_job()`. Creation from criteria alone returns a model ID immediately.
+or `wait_for_job()`. Creation with labeled data already calibrates the model.
+Later calibration refits it to additional labeled data. Creation from criteria alone returns a model ID immediately.
 Calibration takes at least 100 labeled records, with at least 20 records in each
-outcome class, and can add or remove questions in the same request.
+outcome class, and can add or remove questions in the same request. Finic uses up
+to 2,000 supplied labeled rows for creation/calibration.
+
+See the [disposable scoring tutorial](tutorials/disposable-scoring.md) for an
+executable evaluation, recovery ledger, threshold guidance and verified cleanup.
 
 - `calibrate(CalibrationRequest(model_id=..., data=examples))` starts a calibration
   job with labeled records. The earlier `examples` request field is accepted as an
@@ -254,6 +259,8 @@ Pass `include_questions=True` in `ScoringInput` or `ScoringRequest` to receive
 `response.questions`. Each entry contains question text, probability and weight;
 when evidence was not requested it may be absent. These fields are inspection
 metadata; the package does not define a formula for reconstructing the final score.
+Recalibration can change question IDs, membership, count and weights; preserve
+evidence per response and never join questions by array position.
 
 Toolkit scoring requires `allow_schema_update=True` or `allow_schema_bypass=True`
 on `FinicToolkit` before its score tool may use the corresponding schema flag.

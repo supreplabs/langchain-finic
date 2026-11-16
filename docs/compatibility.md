@@ -46,7 +46,8 @@ SDK. They borrow a caller-owned client, do not close it, and are not serializabl
   calibration, and job-status methods. Scoring, creation, and calibration writes
   get one HTTP attempt even when `max_attempts` is larger; decisions and reads use
   bounded retries. Applications must reconcile ambiguous writes before retrying.
-- Creation/calibration return accepted job handles. Waiting is explicit through
+- Labeled-data creation and calibration return accepted job handles. Criteria-only
+  creation returns a model ID immediately; labeled-data creation is already calibrated. Waiting is explicit through
   `wait_for_job`/`await_job`, with bounded time and polling intervals. Completed
   jobs can fail; wait helpers raise `FinicError` for failed jobs, `TimeoutError`
   on deadline expiry, and propagate cancellation. Sync cancellation cannot

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add an executable disposable-model evaluation and cleanup example with recovery evidence, baseline metrics, and guidance for HTTP agent idempotency.
+
 - Require explicit schema capability grants for toolkit scoring and hide ungranted flags.
 - Diagnose legacy score-ID-only calibration payloads and clarify onboarding, score evidence, and lifecycle migration.
 - Add a reusable developer trial kit for recording human or simulated feedback.

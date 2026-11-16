@@ -57,3 +57,9 @@ Record requests, elapsed time, status and exception type for each scenario.
 Model creation, calibration, schema updates and deletion require a separate
 explicitly authorized write plan. A successful small sample does not establish
 accuracy, throughput, latency guarantees or production resilience.
+
+For the full remote workflow and cleanup procedure, use the
+[disposable scoring tutorial](tutorials/disposable-scoring.md). Record initial-trained
+and recalibrated results, chosen threshold, baseline, evidence changes, and cleanup
+status. For HTTP agents, record actual queue actions plus duplicate, conflicting-ID
+and invalid-input behavior; specify persistence and worker limitations.
