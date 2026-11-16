@@ -222,3 +222,16 @@ retract writes already accepted by Finic. For organization-wide request pacing,
 coordinate all workers through a shared rate limiter or queue before invoking
 scoring; a semaphore alone does not enforce requests per second. Keep one attempt
 per write and reconcile ambiguous failures rather than automatically replaying them.
+
+
+### Inspecting destructive tools
+
+`FinicToolkit.destructive` lists selected operations that permanently delete a
+model and its records. It is empty for the default toolkit. Applications can check
+this tuple before exposing tools to an agent. It is informational metadata, not an
+authorization boundary: other explicitly selected tools can also change remote
+state. Keep permission checks in the application.
+
+A transport timeout during model deletion or question removal reports that the
+write outcome may be unknown. These calls are not automatically retried; reconcile
+the remote state before deciding whether another request is appropriate.
