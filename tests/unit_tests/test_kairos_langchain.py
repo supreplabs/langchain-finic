@@ -224,62 +224,66 @@ def test_flush_reports_unconfirmed_delivery_with_real_sdk(status, asynchronous):
         client.shutdown()
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize("operation", ["decide", "run_workflow", "flush"])
-async def test_kairos_cancellation_does_not_stop_sdk_worker(operation):
+def test_kairos_cancellation_does_not_stop_sdk_worker(operation):
     import asyncio
     import threading
 
-    loop = asyncio.get_running_loop()
-    started = asyncio.Event()
-    finished = asyncio.Event()
-    release = threading.Event()
-    effects = []
+    async def run():
+        loop = asyncio.get_running_loop()
+        started = asyncio.Event()
+        finished = asyncio.Event()
+        release = threading.Event()
+        effects = []
 
-    class BlockingKairos(FakeKairos):
-        def block(self):
-            loop.call_soon_threadsafe(started.set)
-            try:
-                if not release.wait(timeout=5):
-                    raise TimeoutError("Test did not release SDK worker")
-                effects.append(operation)
-            finally:
-                loop.call_soon_threadsafe(finished.set)
+        class BlockingKairos(FakeKairos):
+            def block(self):
+                loop.call_soon_threadsafe(started.set)
+                try:
+                    if not release.wait(timeout=5):
+                        raise TimeoutError("Test did not release SDK worker")
+                    effects.append(operation)
+                finally:
+                    loop.call_soon_threadsafe(finished.set)
 
-        def decide(self, action, properties=None, **kwargs):
-            self.block()
-            return super().decide(action, properties, **kwargs)
+            def decide(self, action, properties=None, **kwargs):
+                self.block()
+                return super().decide(action, properties, **kwargs)
 
-        def run_workflow(self, name, input=None, **kwargs):
-            self.block()
-            return super().run_workflow(name, input, **kwargs)
+            def run_workflow(self, name, input=None, **kwargs):
+                self.block()
+                return super().run_workflow(name, input, **kwargs)
 
-        def flush(self):
-            self.block()
-            return super().flush()
+            def flush(self):
+                self.block()
+                return super().flush()
 
-    client = BlockingKairos()
-    if operation == "decide":
-        runnable = KairosRunnable(client=client)
-        payload = {"action": "payment", "properties": {"user_id": "fictional"}}
-    else:
-        runnable = KairosToolkit(client=client, operations=(operation,)).get_tools()[0]
-        payload = (
-            {"name": "review_payment", "input": {"payment_id": "fictional"}}
-            if operation == "run_workflow"
-            else {}
-        )
-    task = asyncio.create_task(runnable.ainvoke(payload))
-    try:
-        await asyncio.wait_for(started.wait(), 2)
-        task.cancel()
-        with pytest.raises(asyncio.CancelledError):
-            await task
-        assert not effects
-        assert not finished.is_set()
-    finally:
-        # Always release and drain the worker, even if an assertion fails.
-        release.set()
-        await asyncio.wait_for(finished.wait(), 2)
-        await asyncio.gather(task, return_exceptions=True)
-    assert effects == [operation]
+        client = BlockingKairos()
+        if operation == "decide":
+            runnable = KairosRunnable(client=client)
+            payload = {"action": "payment", "properties": {"user_id": "fictional"}}
+        else:
+            runnable = KairosToolkit(client=client, operations=(operation,)).get_tools()[0]
+            payload = (
+                {"name": "review_payment", "input": {"payment_id": "fictional"}}
+                if operation == "run_workflow"
+                else {}
+            )
+        task = asyncio.create_task(runnable.ainvoke(payload))
+        try:
+            await asyncio.wait_for(started.wait(), 2)
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+            assert not effects
+            assert not finished.is_set()
+        finally:
+            # Always release the worker, even if an assertion fails.
+            release.set()
+            await asyncio.wait_for(finished.wait(), 2)
+            await asyncio.gather(task, return_exceptions=True)
+        assert effects == [operation]
+
+    # Own the loop: asyncio.run shuts down and joins its default executor, so
+    # cleanup waits for the actual SDK thread, not only the cancelled task.
+    asyncio.run(run())
