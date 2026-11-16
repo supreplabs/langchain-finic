@@ -25,7 +25,7 @@ from langchain_finic import (
 class LifecycleState(TypedDict, total=False):
     examples: list[dict]
     record: dict
-    is_bad: bool
+    calibration_examples: list[dict]
     model_id: str
     creation_job_id: str
     creation_request_id: str
@@ -60,7 +60,7 @@ def build_graph(client: FinicClient, checkpointer):
         result = await client.acalibrate(
             CalibrationRequest(
                 model_id=state["model_id"],
-                data=state["examples"],
+                data=state["calibration_examples"],
             )
         )
         return {"calibration_job_id": result.job_id, "calibration_request_id": result.request_id}

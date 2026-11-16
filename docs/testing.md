@@ -60,3 +60,6 @@ resulting queue, tool effect or fallback. Owned transports close with their
 classifier; see [client ownership](usage.md#client-ownership) when sharing clients.
 For native tools, preserve the question tags described in
 [typed request conversion](usage.md#building-native-tool-arguments-from-a-typed-request).
+
+Use the [developer trial kit](trial-kit.md) to capture onboarding and migration feedback,
+including whether results come from an actual user or a simulated session.

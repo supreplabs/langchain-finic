@@ -60,18 +60,15 @@ permanent and deletes its records. Archive first when the goal is to disable sco
 reversibly.
 
 Model creation from labeled records returns a job ID; poll it with `get_job_status()`
-or `wait_for_job()`. Creation from criteria alone returns a model ID immediately.
+or `wait_for_job()`. Creation with labeled data already calibrates the model.
+Later calibration refits it to additional labeled data. Creation from criteria alone returns a model ID immediately.
 Calibration takes at least 100 labeled records, with at least 20 records in each
-outcome class, and can add or remove questions in the same request.
+outcome class, and can add or remove questions in the same request. Finic uses up
+to 2,000 supplied labeled rows for creation/calibration.
 
-- `create_score(CreateScoreRequest(data=examples, description=...))` starts model
-  creation and returns model, job, and request IDs immediately. Supply at least
-  100 labeled examples, with at least 20 of each outcome. Labels are booleans,
-  integer 0/1, or case-insensitive text true/false/1/0/yes/no in either JSON or CSV.
-  The original label representation is preserved in the request. Each example needs another field. Finic samples more than 2,000 rows;
-  the client never silently truncates your data.
-- `list_scores()` returns the newest 500 models and their status/count metadata.
-  Finic does not document pagination for this endpoint.
+See the [disposable scoring tutorial](tutorials/disposable-scoring.md) for an
+executable evaluation, recovery ledger, threshold guidance and verified cleanup.
+
 - `calibrate(CalibrationRequest(model_id=..., data=examples))` starts a calibration
   job with labeled records. The earlier `examples` request field is accepted as an
   alias for `data`. Earlier package versions accepted per-score outcome rows keyed
@@ -81,10 +78,25 @@ outcome class, and can add or remove questions in the same request.
 - `get_job_status(job_id)` returns `complete`, an optional typed `error`, and a
   derived `succeeded` property. **Complete does not imply success.**
 
-All five methods have native async equivalents prefixed with `a`. Use
+All client methods have native async equivalents prefixed with `a`. Use
 `async with FinicClient()` for async work. Injected httpx clients remain
 caller-owned; close them separately. These methods use the same `FINIC_API_KEY`
 configuration as decisions.
+
+## Legacy model creation and listing
+
+For new applications use `create_scoring_model()` and `list_scoring_models()`.
+The older `create_score()` and `list_scores()` methods remain available on legacy
+routes. Their label and response contracts differ from the current methods:
+
+- `create_score(CreateScoreRequest(data=examples, description=...))` starts model
+  creation and returns model, job, and request IDs immediately. Supply at least
+  100 labeled examples, with at least 20 of each outcome. Labels are booleans,
+  integer 0/1, or case-insensitive text true/false/1/0/yes/no in either JSON or CSV.
+  The original label representation is preserved in the request. Each example needs another field. Finic samples more than 2,000 rows;
+  the client never silently truncates your data.
+- `list_scores()` returns the newest 500 models and their status/count metadata.
+  Finic does not document pagination for this endpoint.
 
 ## JSON and CSV
 
@@ -173,7 +185,7 @@ from langchain_finic import FinicClient, FinicToolkit
 def lifecycle_tools(client: FinicClient):
     read_tools = FinicToolkit(client=client).get_tools()
     creation_tool = FinicToolkit(
-        client=client, operations=("create_score",),
+        client=client, operations=("create_scoring_model",),
     ).get_tools()[0]
     return read_tools, creation_tool
 ```
@@ -235,3 +247,33 @@ state. Keep permission checks in the application.
 A transport timeout during model deletion or question removal reports that the
 write outcome may be unknown. These calls are not automatically retried; reconcile
 the remote state before deciding whether another request is appropriate.
+
+## Calibration migration and score evidence
+
+The `examples` alias only renames the `data` field; it does not look up scored records.
+Replace old rows such as `{"score_id": "payment-1", "is_bad": true}` with original
+features such as `{"amount": 200, "new_device": true, "is_bad": true}`. This applies
+to JSON and CSV. Supply at least 100 full records, including 20 of each outcome.
+
+Pass `include_questions=True` in `ScoringInput` or `ScoringRequest` to receive
+`response.questions`. Each entry contains question text, probability and weight;
+when evidence was not requested it may be absent. These fields are inspection
+metadata; the package does not define a formula for reconstructing the final score.
+Recalibration can change question IDs, membership, count and weights; preserve
+evidence per response and never join questions by array position.
+
+Toolkit scoring requires `allow_schema_update=True` or `allow_schema_bypass=True`
+on `FinicToolkit` before its score tool may use the corresponding schema flag.
+For agents restricted to one model, prefer `scorer.as_tool()`.
+
+The lifecycle graph accepts separate `examples` for creation and
+`calibration_examples` for later calibration. Its `record` input is a scorer input,
+for example `{"score_id": "payment-1", "data": {"amount": 200}}`. Accumulate known
+outcomes with their original features before starting this demonstration; it does
+not wait for an outcome from the single score it creates.
+
+Adding/removing questions and changing criteria alter remote model configuration.
+Inspect the returned model and question IDs after updates. Removal of questions
+used by a calibrated score requires calibration's `remove_questions`. The package
+does not establish concurrent scoring availability or whether criteria edits
+require recalibration; confirm these provider behaviors before scheduling changes.

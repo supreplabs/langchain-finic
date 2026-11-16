@@ -305,7 +305,7 @@ def test_checkpointed_graph_resumes_wait_without_repeating_creation():
                     {
                         "examples": [{"amount": i, "is_bad": i % 2} for i in range(100)],
                         "record": record(),
-                        "is_bad": False,
+                        "calibration_examples": [{"amount": i, "is_bad": i % 2} for i in range(100)],
                     },
                     config,
                 )

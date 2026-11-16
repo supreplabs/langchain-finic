@@ -283,6 +283,9 @@ class CalibrationRequest(Model):
 
     @model_validator(mode="after")
     def outcomes(self) -> Self:
+        for row in _rows(self.data):
+            if "score_id" in row and not set(row) - {"score_id", "model_id", "is_bad"}:
+                raise ValueError("Calibration requires original feature records, not score-ID-only outcomes")
         _validate_labeled_rows(self.data)
         if self.add_questions is not None and any(not question.strip() for question in self.add_questions):
             raise ValueError("Questions must not be blank")

@@ -1,10 +1,11 @@
 """Explicitly selected Finic lifecycle tools with a caller-owned client."""
 
-from typing import Annotated, Literal, Self, cast
+from typing import Annotated, Any, Literal, Self, cast
 
 from langchain_core.tools import BaseTool, BaseToolkit, StructuredTool
-from pydantic import ConfigDict, Field, StrictBool, field_validator, model_validator
+from pydantic import ConfigDict, Field, StrictBool, create_model, field_validator, model_validator
 
+from langchain_finic._state import normalize_state
 from langchain_finic.client import FinicClient
 from langchain_finic.models import DecisionRequest, Model, Text
 from langchain_finic.scoring_models import (
@@ -73,6 +74,8 @@ class FinicToolkit(BaseToolkit):
 
     model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid", hide_input_in_errors=True)
     client: FinicClient = Field(exclude=True, repr=False)
+    allow_schema_update: StrictBool = False
+    allow_schema_bypass: StrictBool = False
     operations: tuple[Operation, ...] = ("list_scoring_models", "get_job_status")
 
     @model_validator(mode="after")
@@ -151,8 +154,37 @@ class FinicToolkit(BaseToolkit):
             ),
         }
         schema = schemas[operation]
+        if operation == "score":
+            disabled = {
+                key
+                for key, enabled in (
+                    ("update_schema", self.allow_schema_update),
+                    ("skip_schema_validation", self.allow_schema_bypass),
+                )
+                if not enabled
+            }
+            fields: dict[str, Any] = {
+                key: (field.annotation or Any, field)
+                for key, field in ScoringRequest.model_fields.items()
+                if key not in disabled
+            }
+            schema = create_model(
+                "FinicToolkitScoringInput",
+                __base__=Model,
+                __validators__={
+                    "normalize_data": field_validator("data", mode="before")(normalize_state),
+                },
+                **fields,
+            )
 
         def arguments(kwargs):
+            if operation == "score":
+                for flag, enabled in (
+                    ("update_schema", self.allow_schema_update),
+                    ("skip_schema_validation", self.allow_schema_bypass),
+                ):
+                    if flag in kwargs and kwargs[flag] is not None and not enabled:
+                        raise ValueError("Scoring schema changes/bypass require explicit toolkit opt-in")
             validated = schema.model_validate(kwargs)
             if operation in {"list_scores", "list_scoring_models"}:
                 return ()
@@ -169,6 +201,8 @@ class FinicToolkit(BaseToolkit):
             if operation == "remove_question":
                 removal = cast(_RemoveQuestionArguments, validated)
                 return (removal.model_id, removal.question_id)
+            if operation == "score":
+                return (ScoringRequest.model_validate(validated.model_dump(exclude_none=True)),)
             return (validated,)
 
         def invoke(**kwargs):
