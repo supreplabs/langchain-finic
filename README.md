@@ -21,7 +21,7 @@ an LCEL chain, a LangGraph node, or a LangChain agent tool.
 - **Score records** with a custom Finic model and manage its calibration.
 - **Add Kairos to an agent** for action decisions, event tracking, or named workflows.
 
-Maintained by Suprep Labs. The current release is a release candidate.
+Maintained by Suprep Labs. The current stable release is 0.1.0.
 See the [compatibility and support policy](https://supreplabs.github.io/langchain-finic/compatibility/).
 
 ## Quickstart
@@ -29,7 +29,7 @@ See the [compatibility and support policy](https://supreplabs.github.io/langchai
 Python 3.11 or newer and a Finic API key are required.
 
 ```bash
-pip install langchain-finic==0.1.0rc1
+pip install langchain-finic==0.1.0
 export FINIC_API_KEY=your_key
 ```
 
@@ -84,13 +84,13 @@ and does not replace application authorization.
 For middleware, install the extra and the provider packages for your host chat models:
 
 ```bash
-pip install 'langchain-finic[middleware]==0.1.0rc1'
+pip install 'langchain-finic[middleware]==0.1.0'
 ```
 
 For Kairos event tracking and action decisions, install the optional extra:
 
 ```bash
-pip install 'langchain-finic[kairos]==0.1.0rc1'
+pip install 'langchain-finic[kairos]==0.1.0'
 ```
 
 See the [Kairos adapter guide](https://supreplabs.github.io/langchain-finic/kairos/).

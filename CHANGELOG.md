@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0
+
+- First stable release of the Finic Grayson and optional Kairos integration for LangChain and LangGraph.
+- Carry forward the validated release candidate’s decision, scoring, and middleware interfaces.
+- Monitor Kairos SDK compatibility alongside the Grayson reference and update the project documentation.
+
 ## 0.1.0rc1
 
 - Release candidate based on the verified 0.1.0b5 release, with identical package implementation and tests.
