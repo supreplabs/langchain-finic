@@ -4,7 +4,7 @@ description: Compatibility, support, and versioning policy for the langchain-fin
 
 # Compatibility and support
 
-The published package is currently a release candidate. This policy identifies the
+The published package is in the stable 0.1.x series. This policy identifies the
 supported surface and the commitments for prereleases and the first final `0.1.x` series.
 
 ## Public imports
@@ -113,7 +113,7 @@ During alpha, beta, and release-candidate testing, proposed breaking changes
 require discussion and release notes with migration instructions. Prereleases are
 intended for API validation and user feedback; users should pin the tested prerelease in their application lockfile.
 
-For the final `0.1.x` series, patch releases will preserve the documented public
+For the stable `0.1.x` series, patch releases will preserve the documented public
 imports, accepted call signatures, required request/response fields, serialized
 class identifiers, and ownership behavior. Bug and security fixes may reject
 previously accepted invalid input or unsafe behavior; release notes will explain
