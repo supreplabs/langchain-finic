@@ -20,3 +20,19 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: python scripts/finic_compatibility.py --create-issues
+  kairos-sdk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: '0.13.5'
+          python-version: '3.12'
+      - run: uv sync --locked --group test
+      - name: Install latest SDK within the supported extra
+        run: uv pip install --upgrade-package finic-kairos -e '.[kairos]'
+      - name: Test Kairos adapter with fake transport
+        run: |
+          .venv/bin/python -c 'import kairos; from importlib.metadata import version; print("finic-kairos " + version("finic-kairos"))'
+          .venv/bin/python -m pytest tests/unit_tests/test_kairos_langchain.py -q

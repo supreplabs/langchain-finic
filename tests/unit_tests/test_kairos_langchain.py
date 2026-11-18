@@ -287,3 +287,43 @@ def test_kairos_cancellation_does_not_stop_sdk_worker(operation):
     # Own the loop: asyncio.run shuts down and joins its default executor, so
     # cleanup waits for the actual SDK thread, not only the cancelled task.
     asyncio.run(run())
+
+
+@pytest.mark.parametrize("operation", ["track", "track_and_decide", "run_workflow"])
+def test_kairos_write_contract_with_real_sdk(operation):
+    kairos_sdk = pytest.importorskip("kairos")
+    requests = []
+
+    def transport(method, url, headers, body, timeout):
+        path = urlsplit(url).path
+        requests.append((method, path, json.loads(body)))
+        return 200, b'{"decision":"review","risk_score":42,"run_id":"run_test","status":"queued"}', {}
+
+    client = kairos_sdk.Kairos("fictional", transport=transport, flush_interval=0, max_retries=0)
+    try:
+        tool = KairosToolkit(client=client, operations=(operation,)).get_tools()[0]
+        if operation == "run_workflow":
+            result = tool.invoke({"name": "review", "input": {"amount": 25}, "idempotency_key": "test"})
+            assert result["run_id"] == "run_test"
+            assert requests == [
+                ("POST", "/v1/workflows/review/runs", {"input": {"amount": 25}, "idempotency_key": "test"})
+            ]
+        else:
+            result = tool.invoke({"event_type": "payment", "properties": {"user_id": "u1", "amount": 25}})
+            if operation == "track":
+                assert result["queued"]
+                assert requests == []
+                client.flush()
+                method, path, payload = requests[0]
+                assert (method, path) == ("POST", "/v1/events")
+                payload = payload["batch"][0]
+            else:
+                assert result["decision"] == "review"
+                method, path, payload = requests[0]
+                assert (method, path) == ("POST", "/v1/events/decide")
+            assert payload["type"] == "payment"
+            assert payload["entities"] == {"user": "u1"}
+            assert payload["properties"] == {"amount": 25}
+        assert len(requests) == 1
+    finally:
+        client.shutdown()
