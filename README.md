@@ -1,6 +1,6 @@
 # langchain-finic
 
-**Use Finic Grayson decision models in Python, LangChain, and LangGraph.**
+**Add typed risk decisions to your LangChain agents and LangGraph workflows.**
 
 [![PyPI version](https://img.shields.io/pypi/v/langchain-finic)](https://pypi.org/project/langchain-finic/)
 [![Downloads](https://img.shields.io/pypi/dm/langchain-finic)](https://pypistats.org/packages/langchain-finic)
@@ -13,30 +13,16 @@
 [API reference](https://supreplabs.github.io/langchain-finic/api/) ·
 [Releases](https://github.com/supreplabs/langchain-finic/releases)
 
-`langchain-finic` is an open-source Python integration for the
-[Finic Grayson API](https://docs.finic.ai/reference/ask). It brings typed,
-probability-based decisions into LangChain Runnables, LangGraph workflows, and
-agent tools. Use it to add risk assessment, review routing, or decision support
-to an application, and to work with Finic custom scoring models.
+Send transaction evidence to Finic Grayson, get structured answers, and route
+cases through your own review policy. Use the same classifier in plain Python,
+an LCEL chain, a LangGraph node, or a LangChain agent tool.
 
-Maintained by Suprep Labs, this is an independent release candidate; it is not endorsed
-by Finic or LangChain.
-See the [compatibility and support policy](https://supreplabs.github.io/langchain-finic/compatibility/)
-for the public API, tested environments, and versioning commitments.
+- **Triage a payment** with a typed probability or a choice among review actions.
+- **Score records** with a custom Finic model and manage its calibration.
+- **Add Kairos to an agent** for action decisions, event tracking, or named workflows.
 
-## What can you build?
-
-- **Fraud and risk review:** ask Grayson structured questions about transaction
-  or account evidence, then route cases according to your application's policy.
-- **LangChain and LangGraph applications:** compose a classifier with LCEL, use
-  it as a graph node, or expose decisions as an agent tool.
-- **Agent workflows:** use optional middleware to route between host chat models
-  or screen proposed tool calls.
-- **Custom risk scoring:** score records with a Finic score model and manage
-  model creation, calibration, and job status through the client or toolkit.
-
-These are integration patterns, not claims of measured fraud detection accuracy.
-Evaluate decisions on representative data before relying on them.
+Maintained by Suprep Labs. The current release is a release candidate.
+See the [compatibility and support policy](https://supreplabs.github.io/langchain-finic/compatibility/).
 
 ## Quickstart
 
@@ -84,16 +70,6 @@ Batching makes individual API requests. Streaming yields one complete decision.
 Use a host chat model for chat generation; tool screening remains probabilistic
 and does not replace application authorization.
 
-## How it fits
-
-```mermaid
-flowchart LR
-    A["LangChain / LangGraph"] --> B["FinicClassifier"]
-    B --> C["Finic Grayson API"]
-    C --> D["Typed decisions"]
-    D --> E["Application routing or review"]
-```
-
 ## LangChain and LangGraph examples
 
 - [LCEL and LangGraph](https://github.com/supreplabs/langchain-finic/blob/main/examples/composition.py): compose a classifier and a typed graph node.
@@ -121,13 +97,6 @@ See the [Kairos adapter guide](https://supreplabs.github.io/langchain-finic/kair
 
 ## Frequently asked questions
 
-### How do I use Finic Grayson with LangChain or LangGraph?
-
-Install `langchain-finic`, set `FINIC_API_KEY`, and invoke `FinicClassifier`
-with a typed `DecisionRequest`. The classifier is a LangChain Runnable, so it
-can also be composed with LCEL, used in a LangGraph node, or exposed as an agent
-tool. See the [composition example](https://github.com/supreplabs/langchain-finic/blob/main/examples/composition.py).
-
 ### Is Finic Grayson a chat model in this package?
 
 No. The package exposes Finic's structured decision and scoring APIs, not a
@@ -147,6 +116,11 @@ system, and probabilistic output is not a substitute for authorization or
 human review where required.
 
 ## Contributing
+
+If this integration saves you time, [star it on GitHub](https://github.com/supreplabs/langchain-finic).
+If you try it in an application, tell us what worked and where you got stuck in
+[the release feedback issue](https://github.com/supreplabs/langchain-finic/issues/12).
+
 
 See [CONTRIBUTING.md](https://github.com/supreplabs/langchain-finic/blob/main/CONTRIBUTING.md) for setup, tests, and documentation standards.
 Default tests run offline with mock providers. Report bugs through
